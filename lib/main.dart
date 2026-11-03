@@ -22,13 +22,14 @@ enum QuoteMode {
   everyTime, // 화면을 열거나 볼 때마다 랜덤
 }
 
-/// 위젯 스타일 설정 (투명도 + 박스 컬러 + 텍스트 컬러 + 게이지 컬러 + 사용자 추가 컬러 팔레트)
+/// 위젯 스타일 설정 (투명도 + 박스 컬러 + 텍스트 컬러 + 게이지 컬러 + 4x1 가운데 표시 모드 + 사용자 추가 컬러 팔레트)
 class WidgetStyle {
   final double opacity; // 0.0 (완전 투명) ~ 1.0 (불투명)
   final int boxColorValue;
   final int textColorValue;
   final int accentColorValue;
   final int wallpaperPreset; // 0: 노을 그라데이션(기본), 1: 밝은 모래, 2: 어두운 밤
+  final int home4x1Mode; // 0: 올해/오늘 진행률 듀얼 게이지, 1: 80세까지 남은 일수·주말 카운트다운, 2: D-Day 목표 프로그레스 & 2개 목표 요약
   final List<int> customBoxColors;
   final List<int> customTextColors;
   final List<int> customAccentColors;
@@ -39,6 +40,7 @@ class WidgetStyle {
     this.textColorValue = 0xFFFFFFFF,
     this.accentColorValue = 0xFFD8C3A5,
     this.wallpaperPreset = 0,
+    this.home4x1Mode = 0,
     this.customBoxColors = const [],
     this.customTextColors = const [],
     this.customAccentColors = const [],
@@ -58,6 +60,7 @@ class WidgetStyle {
     int? textColorValue,
     int? accentColorValue,
     int? wallpaperPreset,
+    int? home4x1Mode,
     List<int>? customBoxColors,
     List<int>? customTextColors,
     List<int>? customAccentColors,
@@ -68,6 +71,7 @@ class WidgetStyle {
         textColorValue: textColorValue ?? this.textColorValue,
         accentColorValue: accentColorValue ?? this.accentColorValue,
         wallpaperPreset: wallpaperPreset ?? this.wallpaperPreset,
+        home4x1Mode: home4x1Mode ?? this.home4x1Mode,
         customBoxColors: customBoxColors ?? this.customBoxColors,
         customTextColors: customTextColors ?? this.customTextColors,
         customAccentColors: customAccentColors ?? this.customAccentColors,
@@ -79,6 +83,7 @@ class WidgetStyle {
         'textColor': textColorValue,
         'accentColor': accentColorValue,
         'wallpaperPreset': wallpaperPreset,
+        'home4x1Mode': home4x1Mode,
         'customBoxColors': customBoxColors,
         'customTextColors': customTextColors,
         'customAccentColors': customAccentColors,
@@ -94,6 +99,7 @@ class WidgetStyle {
       textColorValue: (m['textColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
       accentColorValue: (m['accentColor'] as num?)?.toInt() ?? 0xFFD8C3A5,
       wallpaperPreset: (m['wallpaperPreset'] as num?)?.toInt() ?? 0,
+      home4x1Mode: ((m['home4x1Mode'] as num?)?.toInt() ?? 0).clamp(0, 2),
       customBoxColors: parseInts(m['customBoxColors']),
       customTextColors: parseInts(m['customTextColors']),
       customAccentColors: parseInts(m['customAccentColors']),
@@ -321,6 +327,35 @@ int daysUntil(DateTime goal, [DateTime? now]) =>
     _day(goal).difference(_day(now ?? DateTime.now())).inDays;
 
 String ddayLabel(int d) => d > 0 ? 'D-$d' : (d == 0 ? 'D-DAY' : 'D+${-d}');
+
+/// 올해(1월 1일 ~ 12월 31일) 경과율(%) 계산
+double yearElapsedPercent([DateTime? now]) {
+  final t = now ?? DateTime.now();
+  final start = DateTime(t.year, 1, 1);
+  final end = DateTime(t.year + 1, 1, 1);
+  final totalSeconds = end.difference(start).inSeconds;
+  final elapsedSeconds = t.difference(start).inSeconds;
+  return (elapsedSeconds / totalSeconds * 100).clamp(0.0, 100.0);
+}
+
+/// 오늘 하루(00:00 ~ 24:00) 경과율(%) 계산
+double todayElapsedPercent([DateTime? now]) {
+  final t = now ?? DateTime.now();
+  final secondsToday = t.hour * 3600 + t.minute * 60 + t.second;
+  return (secondsToday / 86400 * 100).clamp(0.0, 100.0);
+}
+
+/// 80세까지 남은 일수 계산
+int remainingLifeDays(DateTime birth, [DateTime? now]) {
+  final b = _day(birth);
+  final end = DateTime(b.year + kLifeExpectancyYears, b.month, b.day);
+  final cur = _day(now ?? DateTime.now());
+  return max(0, end.difference(cur).inDays);
+}
+
+/// 80세까지 남은 주말(토/일 묶음 = 주) 횟수 계산
+int remainingLifeWeekends(DateTime birth, [DateTime? now]) =>
+    (remainingLifeDays(birth, now) / 7).floor();
 
 /// 메멘토 모리 · 시간 · 실행 명언 95선 (강렬한 50선 + 깊이 있는 45선)
 const List<String> kQuotes = [
@@ -1540,14 +1575,16 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(height: 14),
 
-                        // 2) 일반 홈화면 4x1 위젯
+                        // 2) 일반 홈화면 4x1 위젯 (명언 미노출 · 3가지 가운데 정보 옵션 전환 지원)
                         _Home4x1WidgetPreview(
                           percent: pct,
+                          birth: p.birth,
                           livedLabel: livedStr,
-                          goal: pinnedGoals.isNotEmpty ? pinnedGoals.first : null,
-                          quote: _currentQuote,
+                          goals: pinnedGoals,
                           style: ws,
                           now: now,
+                          onChangeMode: (nextMode) =>
+                              _updateProfile(p.copyWith(widgetStyle: ws.copyWith(home4x1Mode: nextMode))),
                         ),
                       ],
                     ),
@@ -1844,9 +1881,48 @@ class _WidgetStyleCustomizerPanel extends StatelessWidget {
               }
             },
           ),
+          const SizedBox(height: 16),
+
+          // 5. 홈화면 4×1 위젯 가운데 노출 정보 옵션 선택 (명언 미노출 · 3가지 모드 전환)
+          const Text('홈화면 4×1 위젯 가운데 표시 정보 (명언 대신 노출)',
+              style: TextStyle(fontSize: 12, color: Colors.white70)),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(_Home4x1WidgetPreview.kModeLabels.length, (idx) {
+              final selected = style.home4x1Mode == idx;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: idx < 2 ? 6 : 0),
+                  child: InkWell(
+                    onTap: () => onChanged(style.copyWith(home4x1Mode: idx)),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? kSandBeige : Colors.black,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: selected ? kSandBeige : Colors.white24),
+                      ),
+                      child: Text(
+                        _Home4x1WidgetPreview.kModeLabels[idx],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected ? Colors.black : Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
           const SizedBox(height: 18),
 
-          // 5. 스타일 저장 완료 버튼
+          // 6. 스타일 저장 완료 버튼
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -2166,28 +2242,38 @@ class _LockDdaySlot extends StatelessWidget {
   }
 }
 
-/// 2. 일반 홈화면 4x1 가로 배너형 위젯 디자인 (투명도/컬러 커스텀 적용)
+/// 2. 일반 홈화면 4x1 가로 배너형 위젯 디자인 (명언 미노출 · 3가지 가운데 정보 옵션 전환 + 투명도/컬러 커스텀 적용)
 class _Home4x1WidgetPreview extends StatelessWidget {
   final double percent;
+  final DateTime birth;
   final String livedLabel;
-  final Goal? goal;
-  final String quote;
+  final List<Goal> goals;
   final WidgetStyle style;
   final DateTime now;
+  final ValueChanged<int> onChangeMode;
 
   const _Home4x1WidgetPreview({
     required this.percent,
+    required this.birth,
     required this.livedLabel,
-    required this.goal,
-    required this.quote,
+    required this.goals,
     required this.style,
     required this.now,
+    required this.onChangeMode,
   });
+
+  static const List<String> kModeLabels = [
+    '올해·오늘 게이지',
+    '남은 날·주말',
+    'D-Day 프로그레스',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final dday = goal != null ? ddayLabel(daysUntil(goal!.date, now)) : 'D-DAY';
-    final goalTitle = goal?.title ?? '목표 미설정';
+    final g1 = goals.isNotEmpty ? goals[0] : null;
+    final dday = g1 != null ? ddayLabel(daysUntil(g1.date, now)) : 'D-DAY';
+    final isLight = style.wallpaperPreset == 1;
+    final mode = style.home4x1Mode.clamp(0, 2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2195,113 +2281,357 @@ class _Home4x1WidgetPreview extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.grid_view_rounded, size: 13, color: style.accentColor),
-              const SizedBox(width: 6),
-              Text('홈화면 4×1 위젯 (가로 배너형)',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: style.wallpaperPreset == 1
-                          ? const Color(0xFF2C221E)
-                          : Colors.white70,
-                      letterSpacing: 1)),
+              Row(
+                children: [
+                  Icon(Icons.grid_view_rounded, size: 13, color: style.accentColor),
+                  const SizedBox(width: 6),
+                  Text('홈화면 4×1 위젯 (가로 배너형)',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isLight ? const Color(0xFF2C221E) : Colors.white70,
+                          letterSpacing: 1)),
+                ],
+              ),
+              // 3가지 가운데 노출 정보 즉시 전환 칩 버튼
+              Row(
+                children: List.generate(kModeLabels.length, (idx) {
+                  final selected = mode == idx;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: InkWell(
+                      key: Key('home4x1Mode_$idx'),
+                      onTap: () => onChangeMode(idx),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? style.accentColor
+                              : Colors.black.withValues(alpha: isLight ? 0.12 : 0.45),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? style.accentColor
+                                : (isLight ? Colors.black26 : Colors.white24),
+                          ),
+                        ),
+                        child: Text(
+                          kModeLabels[idx],
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                            color: selected
+                                ? (style.accentColor.computeLuminance() > 0.5
+                                    ? Colors.black
+                                    : Colors.white)
+                                : (isLight ? const Color(0xFF2C221E) : Colors.white70),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
             ],
           ),
         ),
         Container(
           key: const Key('home4x1WidgetPreview'),
-          constraints: const BoxConstraints(minHeight: 88),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          height: 88,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: style.borderColor),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
-                SizedBox(
-                  width: 106,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(percent.toStringAsFixed(1),
-                              style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w300,
-                                  color: style.textColor,
-                                  height: 1)),
-                          Text('%', style: TextStyle(fontSize: 11, color: style.accentColor)),
-                        ],
+          child: Row(
+            children: [
+              // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
+              SizedBox(
+                width: 102,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(percent.toStringAsFixed(1),
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w300,
+                                color: style.textColor,
+                                height: 1)),
+                        Text('%', style: TextStyle(fontSize: 11, color: style.accentColor)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: percent / 100,
+                        minHeight: 4,
+                        backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                        color: style.accentColor,
                       ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: percent / 100,
-                          minHeight: 4,
-                          backgroundColor: style.subTextColor.withValues(alpha: 0.18),
-                          color: style.accentColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('LIFE $livedLabel',
-                          style: TextStyle(
-                              fontSize: 10, letterSpacing: 1, color: style.accentColor)),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  color: style.subTextColor.withValues(alpha: 0.2),
-                ),
-                // 가운데: 오늘의 명언(말줄임표 없이 전문 전체 노출) + 목표 제목
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        goalTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text('LIFE $livedLabel',
                         style: TextStyle(
-                            fontSize: 11,
-                            color: style.accentColor,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        quote,
-                        softWrap: true,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: style.textColor.withValues(alpha: 0.88),
-                            height: 1.35),
-                      ),
-                    ],
+                            fontSize: 10, letterSpacing: 0.5, color: style.accentColor)),
+                  ],
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 48,
+                margin: const EdgeInsets.symmetric(horizontal: 14),
+                color: style.subTextColor.withValues(alpha: 0.22),
+              ),
+              // 가운데: 명언 없이 3가지 미니멀 타임/목표 지표 중 선택한 모드 표시
+              Expanded(
+                child: _buildCenterContent(mode),
+              ),
+              const SizedBox(width: 12),
+              // 오른쪽: 대표 D-Day 강조 (제목 + D-Day)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    g1?.title ?? '목표 미설정',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: style.subTextColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                // 오른쪽: 대표 D-Day 강조
-                Text(
-                  dday,
-                  style: TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w400, color: style.accentColor),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 2),
+                  Text(
+                    dday,
+                    style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w600,
+                        color: style.accentColor,
+                        height: 1.05),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildCenterContent(int mode) {
+    switch (mode) {
+      case 1:
+        // 옵션 2: 남은 인생 타임 카운트다운 (80세까지 남은 일수 · 남은 주말 횟수)
+        final remDays = NumberFormat('#,###').format(remainingLifeDays(birth, now));
+        final remWeekends = NumberFormat('#,###').format(remainingLifeWeekends(birth, now));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'REMAINING TIME (80세 기준)',
+              style: TextStyle(
+                fontSize: 9.5,
+                letterSpacing: 0.8,
+                color: style.subTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('남은 날', style: TextStyle(fontSize: 10, color: style.subTextColor)),
+                      Text(
+                        '${remDays}일',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: style.textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('남은 주말', style: TextStyle(fontSize: 10, color: style.subTextColor)),
+                      Text(
+                        '${remWeekends}회',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: style.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+      case 2:
+        // 옵션 3: D-Day 목표 프로그레스 바 (목표일까지 남은 일수 + 게이지 바 + 2순위 목표)
+        final g1 = goals.isNotEmpty ? goals[0] : null;
+        final g2 = goals.length > 1 ? goals[1] : null;
+        final rem = g1 != null ? daysUntil(g1.date, now) : 0;
+        // 1년(365일) 기준 목표 달성 임박도 게이지 (가까워질수록 100%에 수렴)
+        final goalProgress = g1 == null
+            ? 0.0
+            : (rem <= 0 ? 1.0 : ((365 - rem.clamp(0, 365)) / 365).clamp(0.08, 1.0));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    g1 != null ? 'TARGET · ${g1.title}' : '목표를 추가해 보세요',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: style.textColor,
+                    ),
+                  ),
+                ),
+                Text(
+                  g1 != null ? '${(goalProgress * 100).round()}%' : '',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: style.accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: goalProgress,
+                minHeight: 5,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.accentColor,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              g2 != null
+                  ? 'NEXT · ${g2.title} (${ddayLabel(daysUntil(g2.date, now))})'
+                  : (g1 != null
+                      ? '목표일: ${DateFormat('yyyy.MM.dd').format(g1.date)}'
+                      : 'D-Day 달성률 바가 표시됩니다'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10, color: style.subTextColor),
+            ),
+          ],
+        );
+
+      default:
+        // 옵션 1 (기본 추천): 올해(YEAR) + 오늘(TODAY) 진행률 듀얼 게이지
+        final yearPct = yearElapsedPercent(now);
+        final todayPct = todayElapsedPercent(now);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 올해 게이지
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${now.year} YEAR',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: style.subTextColor,
+                  ),
+                ),
+                Text(
+                  '${yearPct.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: style.textColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: yearPct / 100,
+                minHeight: 4,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.accentColor,
+              ),
+            ),
+            const SizedBox(height: 7),
+            // 오늘 하루 게이지
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'TODAY',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: style.subTextColor,
+                  ),
+                ),
+                Text(
+                  '${todayPct.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: style.accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: todayPct / 100,
+                minHeight: 4,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.textColor.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        );
+    }
   }
 }
 

@@ -1,0 +1,37 @@
+name: memento_lock
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.6
+  intl: ^0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: MementoSans
+      fonts:
+        - asset: fonts/malgunsl.ttf
+          weight: 200
+        - asset: fonts/malgunsl.ttf
+          weight: 300
+        - asset: fonts/malgun.ttf
+          weight: 400
+        - asset: fonts/malgun.ttf
+          weight: 500
+        - asset: fonts/malgun.ttf
+          weight: 600
+        - asset: fonts/malgun.ttf
+          weight: 700

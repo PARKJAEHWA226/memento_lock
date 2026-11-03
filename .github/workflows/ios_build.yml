@@ -36,7 +36,7 @@ jobs:
       - name: Build iOS Web App (PWA)
         run: |
           flutter pub get
-          flutter build web --release --base-href "/memento_lock/"
+          flutter build web --release --base-href "/memento_lock/" --pwa-strategy=none --no-wasm-dry-run
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

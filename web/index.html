@@ -5,32 +5,47 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="Memento Lock - 80세 인생 게이지, LIFE D+ 카운터, 멀티 D-Day & 메멘토 모리 위젯 앱">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#0A0A0A">
 
   <!-- iOS Web App (홈 화면에 추가 시 전체화면 네이티브 앱 실행) -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Memento Lock">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png?v=3">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png?v=3">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=3"/>
 
   <title>Memento Lock</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json?v=3">
   <style>
     html, body {
       background-color: #000000;
       margin: 0;
       padding: 0;
-      overscroll-behavior: none;
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
     }
   </style>
 </head>
 <body>
+  <script>
+    // 기존에 캐시된 구버전 서비스워커가 터치 이벤트를 가로채는 현상 방지
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -225,58 +225,64 @@ class ProfileStore {
   static const _legacyGoalTitleKey = 'goalTitle';
 
   static Future<Profile?> load() async {
-    final p = await SharedPreferences.getInstance();
-    final birth = DateTime.tryParse(p.getString(_birthKey) ?? '');
-    if (birth == null) return null;
+    try {
+      final p = await SharedPreferences.getInstance();
+      final birth = DateTime.tryParse(p.getString(_birthKey) ?? '');
+      if (birth == null) return null;
 
-    final goals = <Goal>[];
-    final rawList = p.getStringList(_goalsKey);
-    if (rawList != null) {
-      for (final item in rawList) {
+      final goals = <Goal>[];
+      final rawList = p.getStringList(_goalsKey);
+      if (rawList != null) {
+        for (final item in rawList) {
+          try {
+            final g = Goal.fromJson(jsonDecode(item) as Map<String, dynamic>);
+            if (g != null) goals.add(g);
+          } catch (_) {}
+        }
+      } else {
+        final legacyDate = DateTime.tryParse(p.getString(_legacyGoalDateKey) ?? '');
+        if (legacyDate != null) {
+          goals.add(Goal(p.getString(_legacyGoalTitleKey) ?? '나의 목표', legacyDate));
+        }
+      }
+
+      final modeStr = p.getString(_quoteModeKey);
+      final mode = modeStr == QuoteMode.everyTime.name ? QuoteMode.everyTime : QuoteMode.daily;
+
+      WidgetStyle style = const WidgetStyle();
+      final rawStyle = p.getString(_widgetStyleKey);
+      if (rawStyle != null) {
         try {
-          final g = Goal.fromJson(jsonDecode(item) as Map<String, dynamic>);
-          if (g != null) goals.add(g);
+          style = WidgetStyle.fromJson(jsonDecode(rawStyle) as Map<String, dynamic>);
         } catch (_) {}
       }
-    } else {
-      final legacyDate = DateTime.tryParse(p.getString(_legacyGoalDateKey) ?? '');
-      if (legacyDate != null) {
-        goals.add(Goal(p.getString(_legacyGoalTitleKey) ?? '나의 목표', legacyDate));
-      }
+
+      final rawPinned = p.getStringList(_pinnedGoalsKey);
+      final pinned = rawPinned != null
+          ? rawPinned.map((e) => int.tryParse(e)).whereType<int>().toList()
+          : <int>[0, 1];
+
+      return Profile(birth, goals, mode, style, pinned);
+    } catch (_) {
+      return null;
     }
-
-    final modeStr = p.getString(_quoteModeKey);
-    final mode = modeStr == QuoteMode.everyTime.name ? QuoteMode.everyTime : QuoteMode.daily;
-
-    WidgetStyle style = const WidgetStyle();
-    final rawStyle = p.getString(_widgetStyleKey);
-    if (rawStyle != null) {
-      try {
-        style = WidgetStyle.fromJson(jsonDecode(rawStyle) as Map<String, dynamic>);
-      } catch (_) {}
-    }
-
-    final rawPinned = p.getStringList(_pinnedGoalsKey);
-    final pinned = rawPinned != null
-        ? rawPinned.map((e) => int.tryParse(e)).whereType<int>().toList()
-        : <int>[0, 1];
-
-    return Profile(birth, goals, mode, style, pinned);
   }
 
   static Future<void> save(Profile v) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setString(_birthKey, v.birth.toIso8601String());
-    await p.setStringList(
-      _goalsKey,
-      v.goals.map((g) => jsonEncode(g.toJson())).toList(),
-    );
-    await p.setString(_quoteModeKey, v.quoteMode.name);
-    await p.setString(_widgetStyleKey, jsonEncode(v.widgetStyle.toJson()));
-    await p.setStringList(
-      _pinnedGoalsKey,
-      v.pinnedGoalIndices.map((i) => i.toString()).toList(),
-    );
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_birthKey, v.birth.toIso8601String());
+      await p.setStringList(
+        _goalsKey,
+        v.goals.map((g) => jsonEncode(g.toJson())).toList(),
+      );
+      await p.setString(_quoteModeKey, v.quoteMode.name);
+      await p.setString(_widgetStyleKey, jsonEncode(v.widgetStyle.toJson()));
+      await p.setStringList(
+        _pinnedGoalsKey,
+        v.pinnedGoalIndices.map((i) => i.toString()).toList(),
+      );
+    } catch (_) {}
   }
 }
 
@@ -1086,13 +1092,19 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _currentQuote = pickQuote(QuoteMode.daily);
-    ProfileStore.load().then((v) => setState(() {
-          _profile = v;
-          if (v != null) {
-            _currentQuote = pickQuote(v.quoteMode);
-          }
-          _loading = false;
-        }));
+    ProfileStore.load().then((v) {
+      if (!mounted) return;
+      setState(() {
+        _profile = v;
+        if (v != null) {
+          _currentQuote = pickQuote(v.quoteMode);
+        }
+        _loading = false;
+      });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    });
   }
 
   Future<void> _updateProfile(Profile next) async {
@@ -2456,7 +2468,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                     children: [
                       Text('남은 날', style: TextStyle(fontSize: 10, color: style.subTextColor)),
                       Text(
-                        '${remDays}일',
+                        '$remDays일',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2475,7 +2487,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                     children: [
                       Text('남은 주말', style: TextStyle(fontSize: 10, color: style.subTextColor)),
                       Text(
-                        '${remWeekends}회',
+                        '$remWeekends회',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2689,7 +2701,7 @@ class _IosWidgetKitShowcase extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                DateFormat('MM월 dd일 EEEE', 'en_US').format(now),
+                DateFormat('MM월 dd일').format(now),
                 style: TextStyle(
                   fontSize: 11,
                   color: style.textColor.withValues(alpha: 0.75),

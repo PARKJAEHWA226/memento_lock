@@ -92,7 +92,7 @@ jobs:
             -framework SwiftUI \
             -framework WidgetKit \
             -framework Foundation \
-            -e _NSExtensionMain \
+            -Xlinker -e -Xlinker _NSExtensionMain \
             -o build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension
           cp ios/MementoWidgetExtension/Info.plist build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/Info.plist
           chmod +x build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension

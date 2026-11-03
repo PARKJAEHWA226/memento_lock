@@ -130,6 +130,7 @@ extension Color {
 
 // MARK: - iOS Lock Screen & Home Screen Widget View
 
+@available(iOS 16.0, *)
 struct MementoWidgetEntryView: View {
     var entry: MementoProvider.Entry
     @Environment(\.widgetFamily) var family
@@ -294,7 +295,7 @@ struct MementoWidgetEntryView: View {
 extension View {
     @ViewBuilder
     func mementoWidgetBackground(_ color: Color) -> some View {
-        if #available(iOSApplicationExtension 17.0, *) {
+        if #available(iOS 17.0, *) {
             self.containerBackground(color, for: .widget)
         } else {
             self.background(color)
@@ -303,6 +304,7 @@ extension View {
 }
 
 @main
+@available(iOS 16.0, *)
 struct MementoLockWidgetBundle: Widget {
     let kind: String = "MementoLockWidget"
 

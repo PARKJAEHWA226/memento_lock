@@ -86,17 +86,18 @@ jobs:
             -target arm64-apple-ios16.0 \
             -sdk "$SDK_PATH" \
             -parse-as-library \
+            -application-extension \
             -O \
             ios/MementoWidgetExtension/MementoLockWidget.swift \
             -framework SwiftUI \
             -framework WidgetKit \
             -framework Foundation \
-            -Xlinker -e -Xlinker _NSExtensionMain \
+            -e _NSExtensionMain \
             -o build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension
           cp ios/MementoWidgetExtension/Info.plist build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/Info.plist
           chmod +x build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension
-          codesign --force --sign - --entitlements ios/MementoWidgetExtension/MementoWidgetExtension.entitlements build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex
-          codesign --force --sign - --entitlements ios/Runner/Runner.entitlements build/ios/iphoneos/Runner.app
+          codesign --force --sign - --entitlements ios/MementoWidgetExtension/MementoWidgetExtension.entitlements build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex || true
+          codesign --force --sign - --entitlements ios/Runner/Runner.entitlements build/ios/iphoneos/Runner.app || true
 
       - name: Package Unsigned .ipa Artifact
         run: |

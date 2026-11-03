@@ -277,7 +277,7 @@ object MementoWidgetRenderer {
         val tp = Paint(Paint.ANTI_ALIAS_FLAG)
 
         // Header
-        tp.color = withAlpha(d.textColor, 0.65f)
+        tp.color = d.textColor
         tp.textSize = 28f
         tp.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         c.drawText("MEMENTO LOCK", 48f, 64f, tp)
@@ -307,7 +307,7 @@ object MementoWidgetRenderer {
         c.drawLine(340f, 110f, 340f, 210f, divPaint)
 
         // Goal 1 & Goal 2
-        tp.color = withAlpha(d.textColor, 0.65f)
+        tp.color = withAlpha(d.textColor, 0.92f)
         tp.textSize = 28f
         c.drawText(d.g1Title.take(10), 375f, 138f, tp)
         c.drawText(d.g2Title.take(10), 665f, 138f, tp)
@@ -330,7 +330,7 @@ object MementoWidgetRenderer {
         c.drawRoundRect(RectF(barLeft, barTop, fillRight, barBottom), 8f, 8f, barFg)
 
         // Quote at bottom
-        tp.color = withAlpha(d.textColor, 0.88f)
+        tp.color = d.textColor
         tp.textSize = 30f
         tp.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         val q = d.quote

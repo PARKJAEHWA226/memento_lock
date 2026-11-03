@@ -2239,7 +2239,7 @@ class _LockScreenWidgetPreview extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 10.5, color: style.subTextColor, letterSpacing: 0.4)),
+                              fontSize: 10.5, color: style.textColor, letterSpacing: 0.4)),
                     ),
                   ],
                 ),
@@ -2328,14 +2328,14 @@ class _LockScreenWidgetPreview extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // 하단: 명언 전문 전체 노출 (말줄임표 없음)
+          // 하단: 명언 전문 전체 노출 (말줄임표 없음 · 변경한 폰트 컬러 100% 반영)
           Text(
             quote,
             softWrap: true,
             style: TextStyle(
               fontSize: 12,
-              color: style.textColor.withValues(alpha: 0.88),
-              fontWeight: FontWeight.w300,
+              color: style.textColor,
+              fontWeight: FontWeight.w400,
               height: 1.35,
             ),
           ),
@@ -2367,11 +2367,11 @@ class _LockDdaySlot extends StatelessWidget {
           Text(placeholder,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10, color: style.subTextColor)),
+              style: TextStyle(fontSize: 10, color: style.textColor.withValues(alpha: 0.85))),
           const SizedBox(height: 2),
           Text('—',
               style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w300, color: style.subTextColor)),
+                  fontSize: 16, fontWeight: FontWeight.w400, color: style.textColor)),
         ],
       );
     }
@@ -2384,7 +2384,7 @@ class _LockDdaySlot extends StatelessWidget {
           goal!.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, color: style.subTextColor),
+          style: TextStyle(fontSize: 11, color: style.textColor.withValues(alpha: 0.92)),
         ),
         const SizedBox(height: 2),
         Text(
@@ -2877,7 +2877,7 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: isLight ? const Color(0xFF2C221E) : Colors.white70,
+                          color: style.textColor,
                           letterSpacing: 0.4,
                         ),
                       ),
@@ -2992,8 +2992,8 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                 softWrap: true,
                 style: TextStyle(
                   fontSize: 12,
-                  color: style.textColor.withValues(alpha: 0.88),
-                  fontWeight: FontWeight.w300,
+                  color: style.textColor,
+                  fontWeight: FontWeight.w400,
                   height: 1.35,
                 ),
               ),

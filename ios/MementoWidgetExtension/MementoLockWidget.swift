@@ -138,38 +138,44 @@ struct MementoWidgetEntryView: View {
     var body: some View {
         switch family {
         case .accessoryRectangular:
-            // 1) iOS 잠금화면 직사각형 위젯 (전체 폭 확장 · 인생 게이지 + LIFE D+ + D-Day 2개 + 명언)
+            // 1) iOS 잠금화면 직사각형 위젯 (전체 폭 확장 · 변경한 텍스트/포인트 컬러 반영)
+            let textColor = Color(hex: entry.textHex)
+            let accentColor = Color(hex: entry.accentHex)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(String(format: "%.1f%%", entry.lifePercent))
                         .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(textColor)
                     Spacer(minLength: 4)
                     Text("LIFE \(entry.livedDaysLabel)")
                         .font(.system(size: 10, weight: .medium))
-                        .opacity(0.85)
+                        .foregroundColor(accentColor)
                 }
                 .frame(maxWidth: .infinity)
                 ProgressView(value: entry.lifePercent, total: 100.0)
                     .progressViewStyle(.linear)
+                    .tint(accentColor)
                     .frame(maxWidth: .infinity)
                 HStack(spacing: 6) {
                     if let g1 = entry.goals.first {
                         Text("\(g1.title) \(g1.ddayText)")
                             .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(accentColor)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 2)
                     if entry.goals.count > 1 {
                         Text("· \(entry.goals[1].title) \(entry.goals[1].ddayText)")
                             .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(textColor)
                             .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(entry.quote)
-                    .font(.system(size: 9.5, weight: .light))
+                    .font(.system(size: 9.5, weight: .regular))
+                    .foregroundColor(textColor)
                     .lineLimit(1)
-                    .opacity(0.88)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

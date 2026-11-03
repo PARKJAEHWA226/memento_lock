@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Memento Lock</string>
+    <string name="widget_lock_desc">80세 인생 게이지 + LIFE D+ + D-Day 2개 + 오늘의 명언</string>
+    <string name="widget_home_desc">인생 게이지 + 올해/오늘/남은날/D-Day 4x1 가로 배너 위젯</string>
+</resources>

@@ -214,15 +214,37 @@ class Profile {
       );
 }
 
-/// 설정 저장/불러오기 담당
+/// 설정 저장/불러오기 및 실제 폰 홈화면 위젯(AppWidget) 실시간 동기화 담당
 class ProfileStore {
   static const _birthKey = 'birth';
   static const _goalsKey = 'goals';
   static const _quoteModeKey = 'quoteMode';
   static const _widgetStyleKey = 'widgetStyle';
   static const _pinnedGoalsKey = 'pinnedGoals';
+  static const _lastQuoteKey = 'lastQuote';
   static const _legacyGoalDateKey = 'target';
   static const _legacyGoalTitleKey = 'goalTitle';
+  static const MethodChannel _widgetChannel =
+      MethodChannel('com.mementolock.memento_lock/widgets');
+
+  static Future<void> syncNativeWidgets([String? quote]) async {
+    try {
+      if (quote != null) {
+        final p = await SharedPreferences.getInstance();
+        await p.setString(_lastQuoteKey, quote);
+      }
+      await _widgetChannel.invokeMethod('updateWidgets');
+    } catch (_) {}
+  }
+
+  static Future<bool> requestPinNativeWidget(String kind) async {
+    try {
+      final ok = await _widgetChannel.invokeMethod<bool>('requestPinWidget', {'kind': kind});
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   static Future<Profile?> load() async {
     try {
@@ -282,6 +304,8 @@ class ProfileStore {
         _pinnedGoalsKey,
         v.pinnedGoalIndices.map((i) => i.toString()).toList(),
       );
+      await p.setString(_lastQuoteKey, pickQuote(v.quoteMode));
+      await syncNativeWidgets();
     } catch (_) {}
   }
 }
@@ -1116,12 +1140,14 @@ class _HomePageState extends State<HomePage> {
 
   void _refreshQuote([QuoteMode? mode]) {
     final m = mode ?? _profile?.quoteMode ?? QuoteMode.daily;
+    final nextQuote = pickQuote(
+      m,
+      randomSeed: m == QuoteMode.everyTime ? DateTime.now().microsecondsSinceEpoch : null,
+    );
     setState(() {
-      _currentQuote = pickQuote(
-        m,
-        randomSeed: m == QuoteMode.everyTime ? DateTime.now().microsecondsSinceEpoch : null,
-      );
+      _currentQuote = nextQuote;
     });
+    ProfileStore.syncNativeWidgets(nextQuote);
   }
 
   Future<void> _toggleQuoteMode() async {
@@ -1145,11 +1171,24 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(builder: (_) => SettingsPage(initial: _profile)),
     );
     if (result != null) {
+      final q = pickQuote(result.quoteMode);
       await ProfileStore.save(result);
+      await ProfileStore.syncNativeWidgets(q);
+      if (!mounted) return;
       setState(() {
         _profile = result;
-        _currentQuote = pickQuote(result.quoteMode);
+        _currentQuote = q;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF1E1B16),
+          content: Text(
+            '생년월일 및 설정이 저장되어 실제 폰 위젯에 즉시 반영되었습니다!',
+            style: TextStyle(color: kSandBeige, fontSize: 12),
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -1229,15 +1268,19 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           children: [
             // ── 상단 헤더 ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('MEMENTO LOCK',
-                    style: TextStyle(fontSize: 12, letterSpacing: 4, color: kSandBeige)),
+                const Flexible(
+                  child: Text('MEMENTO LOCK',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, letterSpacing: 3, color: kSandBeige)),
+                ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     InkWell(
                       key: const Key('quoteModeToggle'),
@@ -1265,28 +1308,35 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // ── 인생 게이지 (80세 기준 + LIFE D+day + 샌드베이지 바) ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(pct.toStringAsFixed(2),
-                        style: const TextStyle(
-                            fontSize: 60,
-                            fontWeight: FontWeight.w200,
-                            letterSpacing: -2,
-                            height: 1)),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 6, left: 4),
-                      child: Text('%', style: TextStyle(fontSize: 22, color: kSandBeige)),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.bottomLeft,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(pct.toStringAsFixed(2),
+                            style: const TextStyle(
+                                fontSize: 56,
+                                fontWeight: FontWeight.w200,
+                                letterSpacing: -2,
+                                height: 1)),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6, left: 4),
+                          child: Text('%', style: TextStyle(fontSize: 20, color: kSandBeige)),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 10),
                 Container(
                   key: const Key('livedDaysBadge'),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1304,7 +1354,7 @@ class _HomePageState extends State<HomePage> {
                       Text(
                         livedStr,
                         style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.w500,
                             color: kSandBeige,
                             letterSpacing: 0.5),
@@ -1371,14 +1421,18 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 28),
 
-            // ── 위젯 디자인 & 스타일 커스터마이징 헤더 ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // ── 위젯 디자인 & 스타일 커스터마이징 헤더 (좁은 화면에서도 절대 줄넘침 없도록 Wrap 배치) ──
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('위젯 미리보기',
-                        style: TextStyle(fontSize: 12, letterSpacing: 2, color: Colors.white54)),
+                        style: TextStyle(fontSize: 12, letterSpacing: 1.5, color: Colors.white54)),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1395,6 +1449,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // 배경화면 시뮬레이션 전환 버튼 (밝은 모래 전환 시 어울리는 기본 폰트·포인트 컬러 자동 추천 적용)
                     TextButton.icon(
@@ -1425,10 +1480,10 @@ class _HomePageState extends State<HomePage> {
                         }
                         _updateProfile(p.copyWith(widgetStyle: nextStyle));
                       },
-                      icon: const Icon(Icons.wallpaper, size: 14, color: kSandBeige),
+                      icon: const Icon(Icons.wallpaper, size: 13, color: kSandBeige),
                       label: Text(
                         ws.wallpaperPreset == 0
-                            ? '배경: 노을 그라데이션'
+                            ? '배경: 노을'
                             : (ws.wallpaperPreset == 1 ? '배경: 밝은 모래' : '배경: 어두운 밤'),
                         style: const TextStyle(fontSize: 11),
                       ),
@@ -1446,8 +1501,8 @@ class _HomePageState extends State<HomePage> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       ),
                       onPressed: () => setState(() => _showCustomizer = !_showCustomizer),
-                      icon: const Icon(Icons.palette_outlined, size: 15),
-                      label: Text(_showCustomizer ? '스타일 도구 닫기' : '투명도·컬러 변경',
+                      icon: const Icon(Icons.palette_outlined, size: 14),
+                      label: Text(_showCustomizer ? '도구 닫기' : '투명도·컬러',
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ),
                   ],
@@ -1601,6 +1656,79 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
             ),
+            const SizedBox(height: 10),
+            // ── 실제 폰 바탕화면(홈화면)에 위젯 즉시 추가/동기화 버튼 ──
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('pinLockWidgetBtn'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kSandBeige,
+                      backgroundColor: const Color(0xFF14120F),
+                      side: const BorderSide(color: kSandBeigeDim),
+                      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () async {
+                      await ProfileStore.syncNativeWidgets(_currentQuote);
+                      final pinned = await ProfileStore.requestPinNativeWidget('lock');
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: const Color(0xFF1E1B16),
+                          content: Text(
+                            pinned
+                                ? '폰 홈화면에 [잠금화면·명언형 위젯] 추가 창을 열었습니다!'
+                                : '위젯 데이터가 동기화되었습니다. 폰 바탕화면을 길게 눌러 [위젯] ➔ [Memento Lock]을 추가하세요.',
+                            style: const TextStyle(color: kSandBeige, fontSize: 12),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add_to_home_screen, size: 15),
+                    label: const Text('폰 바탕화면에 명언형 위젯 추가',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('pinHome4x1WidgetBtn'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kSandBeige,
+                      backgroundColor: const Color(0xFF14120F),
+                      side: const BorderSide(color: kSandBeigeDim),
+                      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () async {
+                      await ProfileStore.syncNativeWidgets(_currentQuote);
+                      final pinned = await ProfileStore.requestPinNativeWidget('home4x1');
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: const Color(0xFF1E1B16),
+                          content: Text(
+                            pinned
+                                ? '폰 홈화면에 [4×1 배너 위젯] 추가 창을 열었습니다!'
+                                : '위젯 데이터가 동기화되었습니다. 폰 바탕화면을 길게 눌러 [위젯] ➔ [Memento Lock]을 추가하세요.',
+                            style: const TextStyle(color: kSandBeige, fontSize: 12),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.widgets_outlined, size: 15),
+                    label: const Text('폰 바탕화면에 4×1 위젯 추가',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 28),
 
@@ -1608,16 +1736,21 @@ class _HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('나의 D-DAY 목록',
-                        style: TextStyle(fontSize: 12, letterSpacing: 2, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('카드를 탭하면 잠금화면 위젯에 최대 2개까지 선택됩니다',
-                        style: TextStyle(fontSize: 11, color: Colors.white38)),
-                  ],
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('나의 D-DAY 목록',
+                          style: TextStyle(fontSize: 12, letterSpacing: 2, color: Colors.white54)),
+                      SizedBox(height: 2),
+                      Text('카드를 탭하면 잠금화면 위젯에 최대 2개까지 선택됩니다',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: Colors.white38)),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   key: const Key('addGoalHome'),
                   style: OutlinedButton.styleFrom(
@@ -2088,21 +2221,32 @@ class _LockScreenWidgetPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단 헤더
+          // 상단 헤더 (좁은 화면에서도 절대 줄넘침 없도록 Flexible 처리)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.lock_outline, size: 13, color: style.accentColor),
-                  const SizedBox(width: 6),
-                  Text('잠금화면 위젯 (D-Day 2개 노출)',
-                      style: TextStyle(fontSize: 11, color: style.subTextColor, letterSpacing: 1)),
-                ],
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 12, color: style.accentColor),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text('잠금화면 위젯 (D-Day 2개)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 10.5, color: style.subTextColor, letterSpacing: 0.4)),
+                    ),
+                  ],
+                ),
               ),
-              Text('LIFE $livedLabel · $age세/$kLifeExpectancyYears세',
+              const SizedBox(width: 6),
+              Text('LIFE $livedLabel · $age/$kLifeExpectancyYears세',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 11, color: style.accentColor, letterSpacing: 0.5)),
+                      fontSize: 10.5, color: style.accentColor, letterSpacing: 0.2)),
             ],
           ),
           const SizedBox(height: 12),
@@ -2118,7 +2262,7 @@ class _LockScreenWidgetPreview extends StatelessWidget {
                   Text(
                     percent.toStringAsFixed(1),
                     style: TextStyle(
-                      fontSize: 34,
+                      fontSize: 30,
                       fontWeight: FontWeight.w300,
                       color: style.textColor,
                       height: 1,
@@ -2127,13 +2271,13 @@ class _LockScreenWidgetPreview extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 3, left: 2),
                     child: Text('%',
-                        style: TextStyle(fontSize: 14, color: style.accentColor)),
+                        style: TextStyle(fontSize: 13, color: style.accentColor)),
                   ),
                 ],
               ),
-              const SizedBox(width: 14),
-              Container(width: 1, height: 36, color: style.subTextColor.withValues(alpha: 0.25)),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
+              Container(width: 1, height: 34, color: style.subTextColor.withValues(alpha: 0.25)),
+              const SizedBox(width: 10),
 
               // 오른쪽: D-Day 슬롯 2개 (1순위 · 2순위)
               Expanded(
@@ -2147,17 +2291,17 @@ class _LockScreenWidgetPreview extends StatelessWidget {
                         now: now,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 28,
                       color: style.subTextColor.withValues(alpha: 0.18),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _LockDdaySlot(
                         goal: g2,
-                        placeholder: 'D-Day 2 추가 가능',
+                        placeholder: 'D-Day 2 추가',
                         style: style,
                         now: now,
                       ),
@@ -2292,54 +2436,57 @@ class _Home4x1WidgetPreview extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.grid_view_rounded, size: 13, color: style.accentColor),
-                  const SizedBox(width: 6),
-                  Text('홈화면 4×1 위젯 (가로 배너형)',
+                  const SizedBox(width: 5),
+                  Text('홈화면 4×1 위젯',
                       style: TextStyle(
                           fontSize: 11,
                           color: isLight ? const Color(0xFF2C221E) : Colors.white70,
-                          letterSpacing: 1)),
+                          letterSpacing: 0.6)),
                 ],
               ),
               // 3가지 가운데 노출 정보 즉시 전환 칩 버튼
-              Row(
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
                 children: List.generate(kModeLabels.length, (idx) {
                   final selected = mode == idx;
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: InkWell(
-                      key: Key('home4x1Mode_$idx'),
-                      onTap: () => onChangeMode(idx),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
+                  return InkWell(
+                    key: Key('home4x1Mode_$idx'),
+                    onTap: () => onChangeMode(idx),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? style.accentColor
+                            : Colors.black.withValues(alpha: isLight ? 0.12 : 0.45),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
                           color: selected
                               ? style.accentColor
-                              : Colors.black.withValues(alpha: isLight ? 0.12 : 0.45),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: selected
-                                ? style.accentColor
-                                : (isLight ? Colors.black26 : Colors.white24),
-                          ),
+                              : (isLight ? Colors.black26 : Colors.white24),
                         ),
-                        child: Text(
-                          kModeLabels[idx],
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                            color: selected
-                                ? (style.accentColor.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white)
-                                : (isLight ? const Color(0xFF2C221E) : Colors.white70),
-                          ),
+                      ),
+                      child: Text(
+                        kModeLabels[idx],
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected
+                              ? (style.accentColor.computeLuminance() > 0.5
+                                  ? Colors.black
+                                  : Colors.white)
+                              : (isLight ? const Color(0xFF2C221E) : Colors.white70),
                         ),
                       ),
                     ),
@@ -2352,7 +2499,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
         Container(
           key: const Key('home4x1WidgetPreview'),
           height: 88,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(18),
@@ -2362,7 +2509,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
             children: [
               // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
               SizedBox(
-                width: 102,
+                width: 90,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2372,14 +2519,14 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                       children: [
                         Text(percent.toStringAsFixed(1),
                             style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w300,
                                 color: style.textColor,
                                 height: 1)),
-                        Text('%', style: TextStyle(fontSize: 11, color: style.accentColor)),
+                        Text('%', style: TextStyle(fontSize: 10.5, color: style.accentColor)),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
@@ -2391,47 +2538,55 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text('LIFE $livedLabel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 10, letterSpacing: 0.5, color: style.accentColor)),
+                            fontSize: 9.5, letterSpacing: 0.2, color: style.accentColor)),
                   ],
                 ),
               ),
               Container(
                 width: 1,
-                height: 48,
-                margin: const EdgeInsets.symmetric(horizontal: 14),
+                height: 46,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
                 color: style.subTextColor.withValues(alpha: 0.22),
               ),
               // 가운데: 명언 없이 3가지 미니멀 타임/목표 지표 중 선택한 모드 표시
               Expanded(
                 child: _buildCenterContent(mode),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               // 오른쪽: 대표 D-Day 강조 (제목 + D-Day)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    g1?.title ?? '목표 미설정',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: style.subTextColor,
-                      fontWeight: FontWeight.w500,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 76),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      g1?.title ?? '목표 미설정',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: style.subTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    dday,
-                    style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w600,
-                        color: style.accentColor,
-                        height: 1.05),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        dday,
+                        style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            color: style.accentColor,
+                            height: 1.05),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -3099,7 +3254,7 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(backgroundColor: Colors.black, title: const Text('설정')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           children: [
             const Text('생년월일 (숫자 8자리 입력 또는 달력 선택)', style: label),
             const SizedBox(height: 12),
@@ -3119,10 +3274,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                       onChanged: _onBirthTextChanged,
                       style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w300, letterSpacing: 2),
+                          fontSize: 19, fontWeight: FontWeight.w300, letterSpacing: 1.5),
                       decoration: const InputDecoration(
                         hintText: '예: 19950515',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 16),
                         border: OutlineInputBorder(
                             borderSide: BorderSide(color: Colors.white24)),
                         enabledBorder: OutlineInputBorder(
@@ -3133,7 +3288,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 SizedBox(
                   height: 56,
                   child: OutlinedButton.icon(
@@ -3141,12 +3296,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kSandBeige,
                       side: const BorderSide(color: kSandBeigeDim),
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
                     onPressed: _pickBirthCalendar,
-                    icon: const Icon(Icons.calendar_month, size: 20),
-                    label: const Text('달력', style: TextStyle(fontSize: 15)),
+                    icon: const Icon(Icons.calendar_month, size: 18),
+                    label: const Text('달력', style: TextStyle(fontSize: 14)),
                   ),
                 ),
               ],
@@ -3167,8 +3322,11 @@ class _SettingsPageState extends State<SettingsPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('화면 터치 숫자 키패드 (가상 휴대폰/터치 전용)',
-                    style: TextStyle(fontSize: 11, color: Colors.white54)),
+                const Flexible(
+                  child: Text('화면 터치 숫자 키패드',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: Colors.white54)),
+                ),
                 TextButton.icon(
                   style: TextButton.styleFrom(
                     foregroundColor: kSandBeige,
@@ -3299,7 +3457,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               }),
             const SizedBox(height: 32),
-            FilledButton(
+            FilledButton.icon(
               key: const Key('save'),
               style: FilledButton.styleFrom(
                 backgroundColor: kSandBeige,
@@ -3319,8 +3477,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       )
                   : null,
-              child: const Text('저장',
-                  style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.w600)),
+              icon: const Icon(Icons.check_circle_outline, size: 18),
+              label: const Text('저장 및 폰 위젯 즉시 적용',
+                  style: TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.w700)),
             ),
           ],
         ),

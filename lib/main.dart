@@ -1620,12 +1620,15 @@ class _HomePageState extends State<HomePage> {
               child: _iosWidgetMode
                   ? _IosWidgetKitShowcase(
                       percent: pct,
+                      birth: p.birth,
                       age: age,
                       livedLabel: livedStr,
                       goals: pinnedGoals,
                       quote: _currentQuote,
                       style: ws,
                       now: now,
+                      onChangeMode: (nextMode) =>
+                          _updateProfile(p.copyWith(widgetStyle: ws.copyWith(home4x1Mode: nextMode))),
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2805,21 +2808,25 @@ class _Home4x1WidgetPreview extends StatelessWidget {
 /// 3. iOS (iPhone WidgetKit) 전용 잠금화면 & 홈화면 위젯 미리보기 쇼케이스
 class _IosWidgetKitShowcase extends StatelessWidget {
   final double percent;
+  final DateTime birth;
   final int age;
   final String livedLabel;
   final List<Goal> goals;
   final String quote;
   final WidgetStyle style;
   final DateTime now;
+  final ValueChanged<int> onChangeMode;
 
   const _IosWidgetKitShowcase({
     required this.percent,
+    required this.birth,
     required this.age,
     required this.livedLabel,
     required this.goals,
     required this.quote,
     required this.style,
     required this.now,
+    required this.onChangeMode,
   });
 
   @override
@@ -2828,15 +2835,18 @@ class _IosWidgetKitShowcase extends StatelessWidget {
     final g2 = goals.length > 1 ? goals[1] : null;
     final g1Str = g1 != null ? '${g1.title} ${ddayLabel(daysUntil(g1.date, now))}' : 'D-Day 1 미설정';
     final g2Str = g2 != null ? '${g2.title} ${ddayLabel(daysUntil(g2.date, now))}' : 'D-Day 2 추가 가능';
+    final dday = g1 != null ? ddayLabel(daysUntil(g1.date, now)) : 'D-DAY';
+    final isLight = style.wallpaperPreset == 1;
+    final mode = style.home4x1Mode.clamp(0, 2);
 
     return Column(
       key: const Key('iosWidgetShowcase'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // iOS 16+ 잠금화면 상단 시계 & 직사각형 위젯 (accessoryRectangular)
+        // 1) iOS 16+ 잠금화면 상단 시계 & 직사각형 위젯 (accessoryRectangular)
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(22),
@@ -2874,10 +2884,10 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              // iOS accessoryRectangular 잠금화면 위젯 박스
+              // iOS accessoryRectangular 잠금화면 위젯 박스 (인생 게이지 + LIFE D+ + D-Day 2개 + 명언)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: style.rawBoxColor.withValues(alpha: (style.opacity * 0.65).clamp(0.15, 0.85)),
                   borderRadius: BorderRadius.circular(14),
@@ -2961,85 +2971,190 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      quote,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: style.textColor.withValues(alpha: 0.85),
+                        height: 1.3,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        // iOS systemMedium 홈화면 위젯 (22pt Squircle 라운딩)
+        const SizedBox(height: 14),
+
+        // 2) iOS systemMedium 홈화면 위젯 헤더 + 3가지 모드 전환 칩 (명언 미노출 · 3가지 타임/목표 지표)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.phone_iphone, size: 13, color: style.accentColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'iOS 홈화면 Medium 위젯',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isLight ? const Color(0xFF2C221E) : Colors.white70,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: List.generate(_Home4x1WidgetPreview.kModeLabels.length, (idx) {
+                  final selected = mode == idx;
+                  return InkWell(
+                    key: Key('iosMediumMode_$idx'),
+                    onTap: () => onChangeMode(idx),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? style.accentColor
+                            : Colors.black.withValues(alpha: isLight ? 0.12 : 0.45),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: selected
+                              ? style.accentColor
+                              : (isLight ? Colors.black26 : Colors.white24),
+                        ),
+                      ),
+                      child: Text(
+                        _Home4x1WidgetPreview.kModeLabels[idx],
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected
+                              ? (style.accentColor.computeLuminance() > 0.5
+                                  ? Colors.black
+                                  : Colors.white)
+                              : (isLight ? const Color(0xFF2C221E) : Colors.white70),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+
+        // iOS systemMedium 홈화면 위젯 본체 (22pt Squircle 라운딩 + 3단 미니멀 레이아웃)
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: style.borderColor),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      'iOS 홈화면 Medium 위젯',
+              // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
+              SizedBox(
+                width: 88,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          percent.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w300,
+                            color: style.textColor,
+                            height: 1,
+                          ),
+                        ),
+                        Text('%', style: TextStyle(fontSize: 10.5, color: style.accentColor)),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: percent / 100,
+                        minHeight: 4,
+                        backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                        color: style.accentColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'LIFE $livedLabel',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600, color: style.accentColor),
+                        fontSize: 9.5,
+                        letterSpacing: 0.2,
+                        color: style.accentColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'LIFE $livedLabel · $age/$kLifeExpectancyYears세',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, color: style.subTextColor),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Text(
-                    '${percent.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: style.textColor,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _LockDdaySlot(
-                      goal: g1,
-                      placeholder: 'D-Day 1 미설정',
-                      style: style,
-                      now: now,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _LockDdaySlot(
-                      goal: g2,
-                      placeholder: 'D-Day 2 추가 가능',
-                      style: style,
-                      now: now,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 1,
+                height: 46,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: style.subTextColor.withValues(alpha: 0.22),
               ),
-              const SizedBox(height: 8),
-              Text(
-                quote,
-                softWrap: true,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: style.textColor.withValues(alpha: 0.88),
-                  height: 1.35,
+              // 가운데: 3가지 미니멀 타임/목표 지표 (올해·오늘 게이지 / 남은 날·주말 / D-Day 프로그레스)
+              Expanded(
+                child: _buildIosMediumCenter(mode),
+              ),
+              const SizedBox(width: 10),
+              // 오른쪽: 대표 D-Day 강조
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 74),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      g1?.title ?? '목표 미설정',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: style.subTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        dday,
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          color: style.accentColor,
+                          height: 1.05,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -3047,6 +3162,208 @@ class _IosWidgetKitShowcase extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildIosMediumCenter(int mode) {
+    switch (mode) {
+      case 1:
+        final remDays = NumberFormat('#,###').format(remainingLifeDays(birth, now));
+        final remWeekends = NumberFormat('#,###').format(remainingLifeWeekends(birth, now));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'REMAINING TIME (80세)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                letterSpacing: 0.5,
+                color: style.subTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('남은 날', style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      Text(
+                        '$remDays일',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: style.textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('남은 주말', style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      Text(
+                        '$remWeekends회',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: style.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+      case 2:
+        final g1 = goals.isNotEmpty ? goals[0] : null;
+        final g2 = goals.length > 1 ? goals[1] : null;
+        final rem = g1 != null ? daysUntil(g1.date, now) : 0;
+        final goalProgress = g1 == null
+            ? 0.0
+            : (rem <= 0 ? 1.0 : ((365 - rem.clamp(0, 365)) / 365).clamp(0.08, 1.0));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    g1 != null ? 'TARGET · ${g1.title}' : '목표를 추가해 보세요',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: style.textColor,
+                    ),
+                  ),
+                ),
+                Text(
+                  g1 != null ? '${(goalProgress * 100).round()}%' : '',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: style.accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: goalProgress,
+                minHeight: 4,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.accentColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              g2 != null
+                  ? 'NEXT · ${g2.title} (${ddayLabel(daysUntil(g2.date, now))})'
+                  : (g1 != null
+                      ? '목표일: ${DateFormat('yyyy.MM.dd').format(g1.date)}'
+                      : 'D-Day 달성률 바가 표시됩니다'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 9.5, color: style.subTextColor),
+            ),
+          ],
+        );
+
+      default:
+        final yearPct = yearElapsedPercent(now);
+        final todayPct = todayElapsedPercent(now);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${now.year} YEAR',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                    color: style.subTextColor,
+                  ),
+                ),
+                Text(
+                  '${yearPct.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: style.textColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: yearPct / 100,
+                minHeight: 4,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.accentColor,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'TODAY',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                    color: style.subTextColor,
+                  ),
+                ),
+                Text(
+                  '${todayPct.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: style.accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: todayPct / 100,
+                minHeight: 4,
+                backgroundColor: style.subTextColor.withValues(alpha: 0.18),
+                color: style.textColor.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        );
+    }
   }
 }
 

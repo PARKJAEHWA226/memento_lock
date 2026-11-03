@@ -6,6 +6,7 @@ import WidgetKit
 struct MementoGoalItem: Codable, Hashable {
     let title: String
     let ddayText: String
+    let progressPercent: Double
 }
 
 struct MementoWidgetEntry: TimelineEntry {
@@ -13,6 +14,11 @@ struct MementoWidgetEntry: TimelineEntry {
     let lifePercent: Double
     let age: Int
     let livedDaysLabel: String // e.g., "D+11,496"
+    let remainingDaysLabel: String // e.g., "17,724일"
+    let remainingWeekendsLabel: String // e.g., "2,532회"
+    let yearPercent: Double
+    let todayPercent: Double
+    let home4x1Mode: Int // 0: 올해·오늘 게이지, 1: 남은 날·주말, 2: D-Day 프로그레스
     let quote: String
     let goals: [MementoGoalItem]
     let opacity: Double
@@ -44,9 +50,14 @@ struct MementoProvider: TimelineProvider {
         guard let defaults = UserDefaults(suiteName: appGroupId) else {
             return defaultEntry()
         }
-        let pct = defaults.object(forKey: "lifePercent") as? Double ?? 39.37
-        let age = defaults.object(forKey: "age") as? Int ?? 31
-        let lived = defaults.string(forKey: "livedLabel") ?? "D+11,496"
+        let pct = defaults.object(forKey: "lifePercent") as? Double ?? 49.0
+        let age = defaults.object(forKey: "age") as? Int ?? 39
+        let lived = defaults.string(forKey: "livedLabel") ?? "D+14,501"
+        let remDays = defaults.string(forKey: "remainingDaysLabel") ?? "14,719일"
+        let remWeekends = defaults.string(forKey: "remainingWeekendsLabel") ?? "2,102회"
+        let yearPct = defaults.object(forKey: "yearPercent") as? Double ?? 84.1
+        let todayPct = defaults.object(forKey: "todayPercent") as? Double ?? 66.0
+        let homeMode = defaults.object(forKey: "home4x1Mode") as? Int ?? 0
         let quote = defaults.string(forKey: "quote") ?? "기억하라, 너는 언젠가 죽는다. — Memento Mori"
         let opacity = defaults.object(forKey: "opacity") as? Double ?? 0.75
         let boxHex = UInt32(defaults.integer(forKey: "boxColor") != 0 ? defaults.integer(forKey: "boxColor") : 0x0A0A0A)
@@ -55,18 +66,25 @@ struct MementoProvider: TimelineProvider {
 
         let g1Title = defaults.string(forKey: "goal1Title") ?? "나의 목표"
         let g1Dday = defaults.string(forKey: "goal1Dday") ?? "D-100"
+        let g1Prog = defaults.object(forKey: "goal1Progress") as? Double ?? 72.0
         let g2Title = defaults.string(forKey: "goal2Title") ?? "버킷리스트"
         let g2Dday = defaults.string(forKey: "goal2Dday") ?? "D-365"
+        let g2Prog = defaults.object(forKey: "goal2Progress") as? Double ?? 25.0
 
         return MementoWidgetEntry(
             date: Date(),
             lifePercent: pct,
             age: age,
             livedDaysLabel: lived,
+            remainingDaysLabel: remDays,
+            remainingWeekendsLabel: remWeekends,
+            yearPercent: yearPct,
+            todayPercent: todayPct,
+            home4x1Mode: homeMode,
             quote: quote,
             goals: [
-                MementoGoalItem(title: g1Title, ddayText: g1Dday),
-                MementoGoalItem(title: g2Title, ddayText: g2Dday),
+                MementoGoalItem(title: g1Title, ddayText: g1Dday, progressPercent: g1Prog),
+                MementoGoalItem(title: g2Title, ddayText: g2Dday, progressPercent: g2Prog),
             ],
             opacity: opacity,
             boxHex: boxHex,
@@ -78,13 +96,18 @@ struct MementoProvider: TimelineProvider {
     private func defaultEntry() -> MementoWidgetEntry {
         MementoWidgetEntry(
             date: Date(),
-            lifePercent: 39.37,
-            age: 31,
-            livedDaysLabel: "D+11,496",
+            lifePercent: 49.0,
+            age: 39,
+            livedDaysLabel: "D+14,501",
+            remainingDaysLabel: "14,719일",
+            remainingWeekendsLabel: "2,102회",
+            yearPercent: 84.1,
+            todayPercent: 66.0,
+            home4x1Mode: 0,
             quote: "기억하라, 너는 언젠가 죽는다. — Memento Mori",
             goals: [
-                MementoGoalItem(title: "바디프로필", ddayText: "D-42"),
-                MementoGoalItem(title: "세계일주 출발", ddayText: "D-180"),
+                MementoGoalItem(title: "바디프로필", ddayText: "D-42", progressPercent: 88.0),
+                MementoGoalItem(title: "세계일주 출발", ddayText: "D-180", progressPercent: 50.0),
             ],
             opacity: 0.75,
             boxHex: 0x0A0A0A,
@@ -114,11 +137,11 @@ struct MementoWidgetEntryView: View {
     var body: some View {
         switch family {
         case .accessoryRectangular:
-            // iOS 잠금화면 직사각형 위젯 (인생 게이지 + LIFE D+ + D-Day 2개)
-            VStack(alignment: .leading, spacing: 3) {
+            // 1) iOS 잠금화면 직사각형 위젯 (인생 게이지 + LIFE D+ + D-Day 2개 + 명언)
+            VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(String(format: "%.1f%%", entry.lifePercent))
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                     Spacer()
                     Text("LIFE \(entry.livedDaysLabel)")
                         .font(.system(size: 10, weight: .medium))
@@ -126,62 +149,138 @@ struct MementoWidgetEntryView: View {
                 }
                 ProgressView(value: entry.lifePercent, total: 100.0)
                     .progressViewStyle(.linear)
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if let g1 = entry.goals.first {
                         Text("\(g1.title) \(g1.ddayText)")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .lineLimit(1)
                     }
                     if entry.goals.count > 1 {
                         Text("· \(entry.goals[1].title) \(entry.goals[1].ddayText)")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .lineLimit(1)
                     }
                 }
+                Text(entry.quote)
+                    .font(.system(size: 9.5, weight: .light))
+                    .lineLimit(1)
+                    .opacity(0.88)
             }
         default:
-            // iOS 홈화면 Medium 배너 위젯 (투명도 · 박스/텍스트/포인트 컬러 반영)
+            // 2) iOS 홈화면 Medium 배너 위젯 (명언 미노출 · 3가지 타임/목표 지표 모드 지원)
             let boxColor = Color(hex: entry.boxHex, alpha: entry.opacity)
             let textColor = Color(hex: entry.textHex)
             let accentColor = Color(hex: entry.accentHex)
+            let g1 = entry.goals.first
+            let g2 = entry.goals.count > 1 ? entry.goals[1] : nil
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("MEMENTO LOCK")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(2)
-                        .foregroundColor(accentColor)
-                    Spacer()
-                    Text("LIFE \(entry.livedDaysLabel) · \(entry.age)세/80세")
-                        .font(.system(size: 10))
-                        .foregroundColor(accentColor)
-                }
-                HStack(alignment: .center, spacing: 12) {
-                    HStack(alignment: .lastTextBaseline, spacing: 2) {
+            HStack(alignment: .center, spacing: 10) {
+                // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .lastTextBaseline, spacing: 1) {
                         Text(String(format: "%.1f", entry.lifePercent))
-                            .font(.system(size: 28, weight: .light))
+                            .font(.system(size: 20, weight: .light))
                             .foregroundColor(textColor)
                         Text("%")
-                            .font(.system(size: 12))
+                            .font(.system(size: 10))
                             .foregroundColor(accentColor)
                     }
-                    ForEach(entry.goals.prefix(2), id: \.self) { g in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(g.title)
-                                .font(.system(size: 10))
-                                .foregroundColor(textColor.opacity(0.65))
+                    ProgressView(value: entry.lifePercent, total: 100.0)
+                        .tint(accentColor)
+                    Text("LIFE \(entry.livedDaysLabel)")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .lineLimit(1)
+                }
+                .frame(width: 86, alignment: .leading)
+
+                Rectangle()
+                    .fill(textColor.opacity(0.18))
+                    .frame(width: 1, height: 46)
+
+                // 가운데: 선택한 모드 (0: 올해·오늘 게이지, 1: 남은 날·주말, 2: D-Day 프로그레스)
+                VStack(alignment: .leading, spacing: 4) {
+                    if entry.home4x1Mode == 1 {
+                        Text("REMAINING (80세)")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(textColor.opacity(0.6))
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("남은 날")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(textColor.opacity(0.6))
+                                Text(entry.remainingDaysLabel)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(textColor)
+                                    .lineLimit(1)
+                            }
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("남은 주말")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(textColor.opacity(0.6))
+                                Text(entry.remainingWeekendsLabel)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(accentColor)
+                                    .lineLimit(1)
+                            }
+                        }
+                    } else if entry.home4x1Mode == 2 {
+                        HStack {
+                            Text("TARGET · \(g1?.title ?? "목표")")
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundColor(textColor)
                                 .lineLimit(1)
-                            Text(g.ddayText)
-                                .font(.system(size: 16, weight: .semibold))
+                            Spacer()
+                            Text(String(format: "%.0f%%", g1?.progressPercent ?? 0))
+                                .font(.system(size: 9.5, weight: .bold))
                                 .foregroundColor(accentColor)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        ProgressView(value: g1?.progressPercent ?? 0, total: 100.0)
+                            .tint(accentColor)
+                        Text(g2 != nil ? "NEXT · \(g2!.title) (\(g2!.ddayText))" : "D-Day 달성 프로그레스")
+                            .font(.system(size: 9))
+                            .foregroundColor(textColor.opacity(0.65))
+                            .lineLimit(1)
+                    } else {
+                        HStack {
+                            Text("YEAR")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(textColor.opacity(0.6))
+                            Spacer()
+                            Text(String(format: "%.1f%%", entry.yearPercent))
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundColor(textColor)
+                        }
+                        ProgressView(value: entry.yearPercent, total: 100.0)
+                            .tint(accentColor)
+                        HStack {
+                            Text("TODAY")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(textColor.opacity(0.6))
+                            Spacer()
+                            Text(String(format: "%.1f%%", entry.todayPercent))
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundColor(accentColor)
+                        }
+                        ProgressView(value: entry.todayPercent, total: 100.0)
+                            .tint(textColor.opacity(0.85))
                     }
                 }
-                Text(entry.quote)
-                    .font(.system(size: 11, weight: .light))
-                    .foregroundColor(textColor.opacity(0.88))
-                    .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // 오른쪽: 대표 D-Day 강조
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(g1?.title ?? "목표 미설정")
+                        .font(.system(size: 9))
+                        .foregroundColor(textColor.opacity(0.65))
+                        .lineLimit(1)
+                    Text(g1?.ddayText ?? "D-DAY")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .frame(width: 68, alignment: .trailing)
             }
             .padding(14)
             .background(boxColor)
@@ -198,7 +297,7 @@ struct MementoLockWidgetBundle: Widget {
             MementoWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Memento Lock")
-        .description("80세 인생 게이지, LIFE D+ 카운터, 최대 2개의 D-Day와 오늘의 메멘토 모리 문장을 표시합니다.")
+        .description("잠금화면 위젯(인생 게이지 + D-Day 2개 + 명언) 및 홈화면 Medium 위젯(인생 게이지 + 3가지 타임/목표 지표 + D-Day)을 표시합니다.")
         .supportedFamilies([.accessoryRectangular, .systemMedium])
     }
 }

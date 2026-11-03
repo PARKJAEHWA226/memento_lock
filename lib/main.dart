@@ -2889,24 +2889,32 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.phone_iphone, size: 12, color: style.accentColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              'iOS 잠금화면 위젯 · ${percent.toStringAsFixed(1)}%',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: style.textColor,
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.phone_iphone, size: 12, color: style.accentColor),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'iOS 잠금화면 · ${percent.toStringAsFixed(1)}%',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: style.textColor,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 6),
                         Text(
                           'LIFE $livedLabel',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: style.accentColor,
                           ),
@@ -2975,13 +2983,20 @@ class _IosWidgetKitShowcase extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'iOS 홈화면 Medium 위젯 (WidgetKit)',
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600, color: style.accentColor),
+                  Flexible(
+                    child: Text(
+                      'iOS 홈화면 Medium 위젯',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: style.accentColor),
+                    ),
                   ),
+                  const SizedBox(width: 6),
                   Text(
-                    'LIFE $livedLabel · $age세/$kLifeExpectancyYears세',
+                    'LIFE $livedLabel · $age/$kLifeExpectancyYears세',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 10, color: style.subTextColor),
                   ),
                 ],

@@ -2849,8 +2849,6 @@ class _IosWidgetKitShowcase extends StatelessWidget {
   Widget build(BuildContext context) {
     final g1 = goals.isNotEmpty ? goals[0] : null;
     final g2 = goals.length > 1 ? goals[1] : null;
-    final g1Str = g1 != null ? '${g1.title} ${ddayLabel(daysUntil(g1.date, now))}' : 'D-Day 1 미설정';
-    final g2Str = g2 != null ? '${g2.title} ${ddayLabel(daysUntil(g2.date, now))}' : 'D-Day 2 추가 가능';
     final dday = g1 != null ? ddayLabel(daysUntil(g1.date, now)) : 'D-DAY';
     final isLight = style.wallpaperPreset == 1;
     final mode = style.home4x1Mode.clamp(0, 2);
@@ -2859,145 +2857,144 @@ class _IosWidgetKitShowcase extends StatelessWidget {
       key: const Key('iosWidgetShowcase'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1) iOS 16+ 잠금화면 상단 시계 & 직사각형 위젯 (accessoryRectangular)
+        // 1) iOS 잠금화면 위젯 (하단 Medium 위젯과 동일하게 가로 전체 폭 100% 확장)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 13, color: style.accentColor),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'iOS 잠금화면 위젯 (D-Day 2개)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isLight ? const Color(0xFF2C221E) : Colors.white70,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'LIFE $livedLabel · $age/$kLifeExpectancyYears세',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: style.accentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: style.borderColor),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dynamic Island 미니 모형
-              Container(
-                width: 78,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white12),
+              // 상단: 좌측 iOS 미니멀 시계+날짜 배지 | 우측 인생 게이지 % + D-Day 2개 슬롯
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        percent.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w200,
+                          color: style.textColor,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '%',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: style.accentColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    width: 1,
+                    height: 36,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: style.subTextColor.withValues(alpha: 0.25),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _LockDdaySlot(
+                            goal: g1,
+                            placeholder: 'D-Day 1 미설정',
+                            style: style,
+                            now: now,
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 28,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          color: style.subTextColor.withValues(alpha: 0.18),
+                        ),
+                        Expanded(
+                          child: _LockDdaySlot(
+                            goal: g2,
+                            placeholder: 'D-Day 2 추가',
+                            style: style,
+                            now: now,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: percent / 100,
+                  minHeight: 5,
+                  backgroundColor: style.subTextColor.withValues(alpha: 0.2),
+                  color: style.accentColor,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                DateFormat('MM월 dd일').format(now),
+                quote,
+                softWrap: true,
                 style: TextStyle(
-                  fontSize: 11,
-                  color: style.textColor.withValues(alpha: 0.75),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                DateFormat('HH:mm').format(now),
-                style: TextStyle(
-                  fontSize: 44,
-                  fontWeight: FontWeight.w600,
-                  color: style.textColor,
-                  height: 1.05,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // iOS accessoryRectangular 잠금화면 위젯 박스 (인생 게이지 + LIFE D+ + D-Day 2개 + 명언)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: style.rawBoxColor.withValues(alpha: (style.opacity * 0.65).clamp(0.15, 0.85)),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: style.accentColor.withValues(alpha: 0.35)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.phone_iphone, size: 12, color: style.accentColor),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  'iOS 잠금화면 · ${percent.toStringAsFixed(1)}%',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: style.textColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'LIFE $livedLabel',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: style.accentColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: percent / 100,
-                        minHeight: 4,
-                        backgroundColor: style.subTextColor.withValues(alpha: 0.2),
-                        color: style.accentColor,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            g1Str,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: style.accentColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '· $g2Str',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: style.textColor.withValues(alpha: 0.85),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      quote,
-                      softWrap: true,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: style.textColor.withValues(alpha: 0.85),
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+                  fontSize: 12,
+                  color: style.textColor.withValues(alpha: 0.88),
+                  fontWeight: FontWeight.w300,
+                  height: 1.35,
                 ),
               ),
             ],

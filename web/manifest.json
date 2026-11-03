@@ -1,11 +1,11 @@
 {
-    "name": "memento_lock",
-    "short_name": "memento_lock",
+    "name": "Memento Lock",
+    "short_name": "Memento Lock",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#000000",
+    "theme_color": "#D8C3A5",
+    "description": "80세 기준 인생 게이지, LIFE D+ 카운터, 멀티 D-Day & 메멘토 모리 위젯 앱",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

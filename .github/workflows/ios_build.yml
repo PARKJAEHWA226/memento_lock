@@ -1,0 +1,91 @@
+name: iOS & iPhone App Deploy (Memento Lock)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-iphone-webapp:
+    name: Build & Deploy iPhone PWA (GitHub Pages)
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Prepare Korean Font Fallback for Web/iOS
+        run: |
+          mkdir -p fonts
+          curl -L -s -o fonts/malgunsl.ttf https://github.com/google/fonts/raw/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf
+          cp fonts/malgunsl.ttf fonts/malgun.ttf
+
+      - name: Build iOS Web App (PWA)
+        run: |
+          flutter pub get
+          flutter build web --release --base-href "/memento_lock/"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'build/web'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-ios-ipa:
+    name: Build Native iOS App (.ipa) on macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Prepare Korean Font Assets
+        run: |
+          mkdir -p fonts
+          curl -L -s -o fonts/malgunsl.ttf https://github.com/google/fonts/raw/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf
+          cp fonts/malgunsl.ttf fonts/malgun.ttf
+
+      - name: Install Dependencies & Run Unit Tests
+        run: |
+          flutter pub get
+          flutter test
+
+      - name: Build iOS App (No Codesign)
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Package Unsigned .ipa Artifact
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r MementoLock-iOS-Unsigned.ipa Payload
+
+      - name: Upload iOS .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MementoLock-iOS-App
+          path: MementoLock-iOS-Unsigned.ipa

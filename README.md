@@ -71,3 +71,26 @@ flutter run -d emulator-5554
 flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080
 ```
 이후 브라우저에서 `http://127.0.0.1:8080` 접속
+
+---
+
+## 📱 아이폰(iOS)에서 실행하는 3가지 방법
+
+### 방법 1. 아이폰 Safari에서 10초 만에 전체화면 앱으로 설치 (맥북/케이블 불필요 · 가장 추천)
+GitHub Actions가 자동으로 빌드해 배포하는 모바일 웹앱(PWA) 주소를 이용하면, 아이폰에 네이티브 앱처럼 아이콘을 추가하고 상단 주소창 없이 전체화면으로 사용할 수 있습니다.
+1. 아이폰에서 **Safari(사파리)** 앱을 열고 아래 주소로 접속합니다:
+   👉 **`https://parkjaehwa226.github.io/memento_lock/`**
+2. 화면 하단 가운데의 **[공유 버튼(⬆️ 네모 위 화살표)]**을 탭합니다.
+3. 메뉴를 아래로 내려 **[홈 화면에 추가]**를 선택한 뒤 오른쪽 위 **[추가]**를 누릅니다.
+4. 아이폰 바탕화면에 생성된 **`Memento Lock`** 앱 아이콘을 실행하면 주소창 없는 전체화면 앱으로 즉시 작동하며, 모든 생년월일/D-Day/투명도 데이터가 내 아이폰에 영구 저장됩니다.
+
+### 방법 2. Windows PC에서 내 아이폰으로 `.ipa` 파일 직접 설치 (Sideloadly 활용)
+GitHub 서버(macOS)가 매번 코드가 올라갈 때마다 아이폰 설치 파일(`MementoLock-iOS-Unsigned.ipa`)을 자동으로 만들어 줍니다.
+1. GitHub 저장소 상단의 **[Actions]** 탭 ➔ 가장 최근 초록색 체크 표시된 워크플로우 클릭 ➔ 하단 **Artifacts**에서 **`MementoLock-iOS-App`**을 다운로드하여 압축을 풀면 `MementoLock-iOS-Unsigned.ipa` 파일이 나옵니다.
+2. Windows PC에 무료 설치 도구인 **[Sideloadly](https://sideloadly.io/)** (또는 AltStore)를 설치하고 아이폰을 USB 케이블로 연결합니다.
+3. Sideloadly에 `MementoLock-iOS-Unsigned.ipa` 파일을 끌어다 놓고 본인 Apple ID를 입력한 뒤 **[Start]**를 누릅니다.
+4. 설치 완료 후 아이폰 **[설정] ➔ [일반] ➔ [VPN 및 기기 관리]**에서 본인 이메일을 눌러 **[신뢰]**를 한 번만 눌러주면 아이폰에서 네이티브 앱으로 바로 실행됩니다.
+
+### 방법 3. Mac(Xcode)에서 네이티브 앱 + iOS 잠금화면/홈화면 위젯(`WidgetKit`) 빌드
+- 프로젝트 내 `ios/MementoWidgetExtension/MementoLockWidget.swift`에 iOS 16+ 잠금화면 직사각형 위젯(`accessoryRectangular`)과 홈화면 배너 위젯(`systemMedium`) 코드가 모두 구현되어 있습니다.
+- Mac에서 `open ios/Runner.xcworkspace`로 Xcode를 열고 아이폰을 연결한 뒤 ▶(Run) 버튼을 누르면 앱과 iOS 실제 잠금화면 위젯이 함께 설치됩니다.

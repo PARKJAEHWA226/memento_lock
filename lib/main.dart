@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -433,6 +434,7 @@ String pickQuote(QuoteMode mode, {DateTime? now, int? randomSeed}) {
 }
 
 /// 가시성이 뛰어나고 월이 숫자(1월~12월)로 명확히 보이는 커스텀 달력 다이얼로그
+/// + iOS 스타일 연/월/일 휠 피커 & 숫자 키패드 탭 모두 지원하여 모바일/에뮬레이터에서도 100% 입력 가능
 Future<DateTime?> showMementoDatePicker({
   required BuildContext context,
   required DateTime initialDate,
@@ -444,6 +446,7 @@ Future<DateTime?> showMementoDatePicker({
   if (selected.isBefore(_day(firstDate))) selected = _day(firstDate);
   if (selected.isAfter(_day(lastDate))) selected = _day(lastDate);
   DateTime displayedMonth = DateTime(selected.year, selected.month, 1);
+  int inputTab = 0; // 0: 달력 선택, 1: iOS 휠 피커 (연/월/일 빠르게 굴리기)
 
   return showDialog<DateTime>(
     context: context,
@@ -461,200 +464,359 @@ Future<DateTime?> showMementoDatePicker({
           setModalState(() => displayedMonth = next);
         }
 
+        void selectYearMonthDay(int y, int m, [int? d]) {
+          final maxDay = DateTime(y, m + 1, 0).day;
+          final safeDay = (d ?? selected.day).clamp(1, maxDay);
+          var candidate = DateTime(y, m, safeDay);
+          if (candidate.isBefore(_day(firstDate))) candidate = _day(firstDate);
+          if (candidate.isAfter(_day(lastDate))) candidate = _day(lastDate);
+          setModalState(() {
+            selected = candidate;
+            displayedMonth = DateTime(candidate.year, candidate.month, 1);
+          });
+        }
+
         return AlertDialog(
           backgroundColor: const Color(0xFF141414),
           surfaceTintColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             side: const BorderSide(color: kSandBeige, width: 1.2),
           ),
-          titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-          contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          titlePadding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+          contentPadding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(fontSize: 14, color: kSandBeige, letterSpacing: 1)),
-              Text(
-                DateFormat('yyyy.MM.dd').format(selected),
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontSize: 14, color: kSandBeige, letterSpacing: 1)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF241E17),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: kSandBeigeDim),
+                    ),
+                    child: Text(
+                      DateFormat('yyyy년 MM월 dd일').format(selected),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700, color: kSandBeige),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // 모드 전환 탭: [달력에서 터치] vs [iOS 휠로 연·월·일 빠른 선택]
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setModalState(() => inputTab = 0),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: inputTab == 0 ? kSandBeige : Colors.black,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: inputTab == 0 ? kSandBeige : Colors.white24),
+                        ),
+                        child: Text(
+                          '달력으로 선택',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: inputTab == 0 ? Colors.black : Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setModalState(() => inputTab = 1),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: inputTab == 1 ? kSandBeige : Colors.black,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: inputTab == 1 ? kSandBeige : Colors.white24),
+                        ),
+                        child: Text(
+                          '연·월·일 빠른 휠 (iOS형)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: inputTab == 1 ? Colors.black : Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           content: SizedBox(
             width: 320,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        tooltip: '이전 달',
-                        icon: const Icon(Icons.chevron_left, color: kSandBeige),
-                        onPressed: () => changeMonth(-1),
-                      ),
-                      Row(
+            child: SingleChildScrollView(
+              child: inputTab == 1
+                  ? SizedBox(
+                      height: 220,
+                      child: Row(
                         children: [
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: year,
-                              dropdownColor: const Color(0xFF1E1E1E),
-                              style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white),
-                              items: [
-                                for (int y = firstDate.year; y <= lastDate.year; y++)
-                                  DropdownMenuItem(value: y, child: Text('$y년')),
-                              ],
-                              onChanged: (y) {
-                                if (y != null) {
-                                  setModalState(() => displayedMonth = DateTime(y, month, 1));
-                                }
+                          // 연도 휠
+                          Expanded(
+                            flex: 4,
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: (selected.year - firstDate.year)
+                                    .clamp(0, lastDate.year - firstDate.year),
+                              ),
+                              itemExtent: 38,
+                              onSelectedItemChanged: (idx) {
+                                selectYearMonthDay(firstDate.year + idx, selected.month);
                               },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: month,
-                              dropdownColor: const Color(0xFF1E1E1E),
-                              style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: kSandBeige),
-                              items: [
-                                for (int m = 1; m <= 12; m++)
-                                  DropdownMenuItem(
-                                    value: m,
-                                    child: Text('${m.toString().padLeft(2, '0')}월'),
+                              children: [
+                                for (int y = firstDate.year; y <= lastDate.year; y++)
+                                  Center(
+                                    child: Text('$y년',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 16)),
                                   ),
                               ],
-                              onChanged: (m) {
-                                if (m != null) {
-                                  setModalState(() => displayedMonth = DateTime(year, m, 1));
-                                }
+                            ),
+                          ),
+                          // 월 휠
+                          Expanded(
+                            flex: 3,
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: selected.month - 1,
+                              ),
+                              itemExtent: 38,
+                              onSelectedItemChanged: (idx) {
+                                selectYearMonthDay(selected.year, idx + 1);
                               },
+                              children: [
+                                for (int m = 1; m <= 12; m++)
+                                  Center(
+                                    child: Text('${m.toString().padLeft(2, '0')}월',
+                                        style: const TextStyle(
+                                            color: kSandBeige,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          // 일 휠
+                          Expanded(
+                            flex: 3,
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(
+                                initialItem: (selected.day - 1).clamp(0, 30),
+                              ),
+                              itemExtent: 38,
+                              onSelectedItemChanged: (idx) {
+                                selectYearMonthDay(selected.year, selected.month, idx + 1);
+                              },
+                              children: [
+                                for (int d = 1;
+                                    d <= DateTime(selected.year, selected.month + 1, 0).day;
+                                    d++)
+                                  Center(
+                                    child: Text('${d.toString().padLeft(2, '0')}일',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 16)),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      IconButton(
-                        tooltip: '다음 달',
-                        icon: const Icon(Icons.chevron_right, color: kSandBeige),
-                        onPressed: () => changeMonth(1),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 30,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 12,
-                    separatorBuilder: (_, _) => const SizedBox(width: 4),
-                    itemBuilder: (_, idx) {
-                      final m = idx + 1;
-                      final isCurMonth = m == month;
-                      return InkWell(
-                        onTap: () => setModalState(() => displayedMonth = DateTime(year, m, 1)),
-                        borderRadius: BorderRadius.circular(4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          alignment: Alignment.center,
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isCurMonth ? kSandBeige : Colors.black,
-                            border: Border.all(
-                                color: isCurMonth ? kSandBeige : Colors.white24),
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white24),
                           ),
-                          child: Text(
-                            '$m월',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isCurMonth ? FontWeight.w700 : FontWeight.w400,
-                              color: isCurMonth ? Colors.black : Colors.white70,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                tooltip: '이전 달',
+                                icon: const Icon(Icons.chevron_left, color: kSandBeige),
+                                onPressed: () => changeMonth(-1),
+                              ),
+                              Row(
+                                children: [
+                                  DropdownButtonHideUnderline(
+                                    child: DropdownButton<int>(
+                                      value: year,
+                                      dropdownColor: const Color(0xFF1E1E1E),
+                                      style: const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white),
+                                      items: [
+                                        for (int y = firstDate.year; y <= lastDate.year; y++)
+                                          DropdownMenuItem(value: y, child: Text('$y년')),
+                                      ],
+                                      onChanged: (y) {
+                                        if (y != null) selectYearMonthDay(y, month);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  DropdownButtonHideUnderline(
+                                    child: DropdownButton<int>(
+                                      value: month,
+                                      dropdownColor: const Color(0xFF1E1E1E),
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: kSandBeige),
+                                      items: [
+                                        for (int m = 1; m <= 12; m++)
+                                          DropdownMenuItem(
+                                            value: m,
+                                            child: Text('${m.toString().padLeft(2, '0')}월'),
+                                          ),
+                                      ],
+                                      onChanged: (m) {
+                                        if (m != null) selectYearMonthDay(year, m);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              IconButton(
+                                tooltip: '다음 달',
+                                icon: const Icon(Icons.chevron_right, color: kSandBeige),
+                                onPressed: () => changeMonth(1),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: const [
-                    _WeekdayHeader('일', color: Color(0xFFFF8A80)),
-                    _WeekdayHeader('월'),
-                    _WeekdayHeader('화'),
-                    _WeekdayHeader('수'),
-                    _WeekdayHeader('목'),
-                    _WeekdayHeader('금'),
-                    _WeekdayHeader('토', color: Color(0xFF82B1FF)),
-                  ],
-                ),
-                const Divider(color: Colors.white24, height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 1.1,
-                  ),
-                  itemCount: firstWeekdayOffset + daysInMonth,
-                  itemBuilder: (_, index) {
-                    if (index < firstWeekdayOffset) return const SizedBox.shrink();
-                    final dayNum = index - firstWeekdayOffset + 1;
-                    final cellDate = DateTime(year, month, dayNum);
-                    final isSelected = cellDate == selected;
-                    final isToday = cellDate == today;
-                    final disabled =
-                        cellDate.isBefore(_day(firstDate)) || cellDate.isAfter(_day(lastDate));
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 28,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: 12,
+                            separatorBuilder: (_, _) => const SizedBox(width: 4),
+                            itemBuilder: (_, idx) {
+                              final m = idx + 1;
+                              final isCurMonth = m == month;
+                              return InkWell(
+                                onTap: () => selectYearMonthDay(year, m),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isCurMonth ? kSandBeige : Colors.black,
+                                    border: Border.all(
+                                        color: isCurMonth ? kSandBeige : Colors.white24),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '$m월',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight:
+                                          isCurMonth ? FontWeight.w700 : FontWeight.w400,
+                                      color: isCurMonth ? Colors.black : Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: const [
+                            _WeekdayHeader('일', color: Color(0xFFFF8A80)),
+                            _WeekdayHeader('월'),
+                            _WeekdayHeader('화'),
+                            _WeekdayHeader('수'),
+                            _WeekdayHeader('목'),
+                            _WeekdayHeader('금'),
+                            _WeekdayHeader('토', color: Color(0xFF82B1FF)),
+                          ],
+                        ),
+                        const Divider(color: Colors.white24, height: 10),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 7,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 1.15,
+                          ),
+                          itemCount: firstWeekdayOffset + daysInMonth,
+                          itemBuilder: (_, index) {
+                            if (index < firstWeekdayOffset) return const SizedBox.shrink();
+                            final dayNum = index - firstWeekdayOffset + 1;
+                            final cellDate = DateTime(year, month, dayNum);
+                            final isSelected = cellDate == selected;
+                            final isToday = cellDate == today;
+                            final disabled = cellDate.isBefore(_day(firstDate)) ||
+                                cellDate.isAfter(_day(lastDate));
 
-                    return InkWell(
-                      onTap: disabled
-                          ? null
-                          : () => setModalState(() => selected = cellDate),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? kSandBeige
-                              : (isToday ? const Color(0xFF26211A) : Colors.transparent),
-                          borderRadius: BorderRadius.circular(6),
-                          border: isToday && !isSelected
-                              ? Border.all(color: kSandBeige, width: 1.2)
-                              : Border.all(color: Colors.white10),
+                            return InkWell(
+                              onTap: disabled
+                                  ? null
+                                  : () => setModalState(() => selected = cellDate),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? kSandBeige
+                                      : (isToday
+                                          ? const Color(0xFF26211A)
+                                          : Colors.transparent),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: isToday && !isSelected
+                                      ? Border.all(color: kSandBeige, width: 1.2)
+                                      : Border.all(color: Colors.white10),
+                                ),
+                                child: Text(
+                                  '$dayNum',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected || isToday
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                    color: disabled
+                                        ? Colors.white24
+                                        : (isSelected ? Colors.black : Colors.white),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        child: Text(
-                          '$dayNum',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                isSelected || isToday ? FontWeight.w700 : FontWeight.w400,
-                            color: disabled
-                                ? Colors.white24
-                                : (isSelected ? Colors.black : Colors.white),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                      ],
+                    ),
             ),
           ),
           actions: [
@@ -883,6 +1045,7 @@ class _HomePageState extends State<HomePage> {
   bool _loading = true;
   late String _currentQuote;
   bool _showCustomizer = false;
+  bool _iosWidgetMode = false; // false: Android 위젯 프리뷰, true: iOS (iPhone WidgetKit) 프리뷰
 
   @override
   void initState() {
@@ -1270,7 +1433,81 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 14),
             ],
 
-            // ── 배경화면 시뮬레이션 캔버스 위에 위젯 2종 렌더링 (투명도 실시간 확인) ──
+            // ── 배경화면 시뮬레이션 캔버스 위에 위젯 2종 렌더링 (Android / iOS 전환 + 투명도 실시간 확인) ──
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    key: const Key('androidPreviewTab'),
+                    onTap: () => setState(() => _iosWidgetMode = false),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: !_iosWidgetMode ? kSandBeige : const Color(0xFF141414),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: !_iosWidgetMode ? kSandBeige : Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.android,
+                              size: 14,
+                              color: !_iosWidgetMode ? Colors.black : Colors.white70),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Android 위젯 디자인',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: !_iosWidgetMode ? Colors.black : Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    key: const Key('iosPreviewTab'),
+                    onTap: () => setState(() => _iosWidgetMode = true),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _iosWidgetMode ? kSandBeige : const Color(0xFF141414),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: _iosWidgetMode ? kSandBeige : Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.phone_iphone,
+                              size: 14,
+                              color: _iosWidgetMode ? Colors.black : Colors.white70),
+                          const SizedBox(width: 6),
+                          Text(
+                            'iOS (아이폰) 위젯 디자인',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _iosWidgetMode ? Colors.black : Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1278,32 +1515,42 @@ class _HomePageState extends State<HomePage> {
                 border: Border.all(color: Colors.white24),
                 gradient: _wallpaperGradient(ws.wallpaperPreset),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 1) 잠금화면 위젯 (D-Day 최대 2개 동시 노출)
-                  _LockScreenWidgetPreview(
-                    percent: pct,
-                    age: age,
-                    livedLabel: livedStr,
-                    goals: pinnedGoals,
-                    quote: _currentQuote,
-                    style: ws,
-                    now: now,
-                  ),
-                  const SizedBox(height: 14),
+              child: _iosWidgetMode
+                  ? _IosWidgetKitShowcase(
+                      percent: pct,
+                      age: age,
+                      livedLabel: livedStr,
+                      goals: pinnedGoals,
+                      quote: _currentQuote,
+                      style: ws,
+                      now: now,
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1) 잠금화면 위젯 (D-Day 최대 2개 동시 노출)
+                        _LockScreenWidgetPreview(
+                          percent: pct,
+                          age: age,
+                          livedLabel: livedStr,
+                          goals: pinnedGoals,
+                          quote: _currentQuote,
+                          style: ws,
+                          now: now,
+                        ),
+                        const SizedBox(height: 14),
 
-                  // 2) 일반 홈화면 4x1 위젯
-                  _Home4x1WidgetPreview(
-                    percent: pct,
-                    livedLabel: livedStr,
-                    goal: pinnedGoals.isNotEmpty ? pinnedGoals.first : null,
-                    quote: _currentQuote,
-                    style: ws,
-                    now: now,
-                  ),
-                ],
-              ),
+                        // 2) 일반 홈화면 4x1 위젯
+                        _Home4x1WidgetPreview(
+                          percent: pct,
+                          livedLabel: livedStr,
+                          goal: pinnedGoals.isNotEmpty ? pinnedGoals.first : null,
+                          quote: _currentQuote,
+                          style: ws,
+                          now: now,
+                        ),
+                      ],
+                    ),
             ),
 
             const SizedBox(height: 28),
@@ -2057,6 +2304,239 @@ class _Home4x1WidgetPreview extends StatelessWidget {
   }
 }
 
+/// 3. iOS (iPhone WidgetKit) 전용 잠금화면 & 홈화면 위젯 미리보기 쇼케이스
+class _IosWidgetKitShowcase extends StatelessWidget {
+  final double percent;
+  final int age;
+  final String livedLabel;
+  final List<Goal> goals;
+  final String quote;
+  final WidgetStyle style;
+  final DateTime now;
+
+  const _IosWidgetKitShowcase({
+    required this.percent,
+    required this.age,
+    required this.livedLabel,
+    required this.goals,
+    required this.quote,
+    required this.style,
+    required this.now,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final g1 = goals.isNotEmpty ? goals[0] : null;
+    final g2 = goals.length > 1 ? goals[1] : null;
+    final g1Str = g1 != null ? '${g1.title} ${ddayLabel(daysUntil(g1.date, now))}' : 'D-Day 1 미설정';
+    final g2Str = g2 != null ? '${g2.title} ${ddayLabel(daysUntil(g2.date, now))}' : 'D-Day 2 추가 가능';
+
+    return Column(
+      key: const Key('iosWidgetShowcase'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // iOS 16+ 잠금화면 상단 시계 & 직사각형 위젯 (accessoryRectangular)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: style.boxColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: style.borderColor),
+          ),
+          child: Column(
+            children: [
+              // Dynamic Island 미니 모형
+              Container(
+                width: 78,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white12),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                DateFormat('MM월 dd일 EEEE', 'en_US').format(now),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: style.textColor.withValues(alpha: 0.75),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                DateFormat('HH:mm').format(now),
+                style: TextStyle(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w600,
+                  color: style.textColor,
+                  height: 1.05,
+                  letterSpacing: -1,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // iOS accessoryRectangular 잠금화면 위젯 박스
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: style.rawBoxColor.withValues(alpha: (style.opacity * 0.65).clamp(0.15, 0.85)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: style.accentColor.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.phone_iphone, size: 12, color: style.accentColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              'iOS 잠금화면 위젯 · ${percent.toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: style.textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'LIFE $livedLabel',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: style.accentColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: percent / 100,
+                        minHeight: 4,
+                        backgroundColor: style.subTextColor.withValues(alpha: 0.2),
+                        color: style.accentColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            g1Str,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: style.accentColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '· $g2Str',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: style.textColor.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // iOS systemMedium 홈화면 위젯 (22pt Squircle 라운딩)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: style.boxColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: style.borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'iOS 홈화면 Medium 위젯 (WidgetKit)',
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: style.accentColor),
+                  ),
+                  Text(
+                    'LIFE $livedLabel · $age세/$kLifeExpectancyYears세',
+                    style: TextStyle(fontSize: 10, color: style.subTextColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    '${percent.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w300,
+                      color: style.textColor,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _LockDdaySlot(
+                      goal: g1,
+                      placeholder: 'D-Day 1 미설정',
+                      style: style,
+                      now: now,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _LockDdaySlot(
+                      goal: g2,
+                      placeholder: 'D-Day 2 추가 가능',
+                      style: style,
+                      now: now,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                quote,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: style.textColor.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// D-Day 추가 팝업 다이얼로그
 Future<Goal?> showGoalDialog(BuildContext context) async {
   final titleCtrl = TextEditingController();
@@ -2205,6 +2685,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late List<Goal> _goals;
   late QuoteMode _quoteMode;
   String? _birthError;
+  bool _showBirthKeypad = true; // 에뮬레이터/모바일에서 키보드가 안 올라와도 바로 터치 입력 가능한 내장 숫자패드
 
   @override
   void initState() {
@@ -2332,12 +2813,59 @@ class _SettingsPageState extends State<SettingsPage> {
               _birthError ??
                   (_birth != null
                       ? '선택됨: ${DateFormat('yyyy년 MM월 dd일').format(_birth!)} (LIFE ${livedDayLabel(_birth!)})'
-                      : '연도(4자리) + 월(2자리) + 일(2자리)을 입력하거나 달력을 누르세요'),
+                      : '연도(4자리) + 월(2자리) + 일(2자리)을 입력하거나 달력/숫자패드를 누르세요'),
               style: TextStyle(
                 fontSize: 12,
                 color: _birthError != null ? Colors.redAccent : Colors.white54,
               ),
             ),
+            const SizedBox(height: 10),
+            // 가상 휴대폰/모바일에서도 100% 클릭·터치로 즉시 8자리 입력이 가능한 내장 퀵 숫자패드
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('화면 터치 숫자 키패드 (가상 휴대폰/터치 전용)',
+                    style: TextStyle(fontSize: 11, color: Colors.white54)),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: kSandBeige,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => setState(() => _showBirthKeypad = !_showBirthKeypad),
+                  icon: Icon(
+                    _showBirthKeypad ? Icons.keyboard_hide : Icons.dialpad,
+                    size: 14,
+                  ),
+                  label: Text(_showBirthKeypad ? '키패드 접기' : '키패드 열기',
+                      style: const TextStyle(fontSize: 11)),
+                ),
+              ],
+            ),
+            if (_showBirthKeypad) ...[
+              const SizedBox(height: 6),
+              _InlineBirthKeypad(
+                onDigit: (d) {
+                  if (_birthCtrl.text.length >= 8) return;
+                  final next = '${_birthCtrl.text}$d';
+                  _birthCtrl.text = next;
+                  _birthCtrl.selection = TextSelection.collapsed(offset: next.length);
+                  _onBirthTextChanged(next);
+                },
+                onBackspace: () {
+                  if (_birthCtrl.text.isEmpty) return;
+                  final next = _birthCtrl.text.substring(0, _birthCtrl.text.length - 1);
+                  _birthCtrl.text = next;
+                  _birthCtrl.selection = TextSelection.collapsed(offset: next.length);
+                  _onBirthTextChanged(next);
+                },
+                onClear: () {
+                  _birthCtrl.clear();
+                  _onBirthTextChanged('');
+                },
+              ),
+            ],
             const SizedBox(height: 32),
 
             // ── 명언 노출 주기 설정 ──
@@ -2453,6 +2981,92 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 가상 휴대폰(에뮬레이터)이나 모바일 화면에서 마우스 클릭/터치만으로 8자리 생년월일을 빠르게 입력하는 키패드
+class _InlineBirthKeypad extends StatelessWidget {
+  final ValueChanged<String> onDigit;
+  final VoidCallback onBackspace;
+  final VoidCallback onClear;
+
+  const _InlineBirthKeypad({
+    required this.onDigit,
+    required this.onBackspace,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['CLR', '0', 'DEL'],
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        children: [
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  for (final key in row)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: SizedBox(
+                          height: 40,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor:
+                                  key == 'CLR' || key == 'DEL' ? const Color(0xFF1E1915) : Colors.black,
+                              foregroundColor:
+                                  key == 'CLR' || key == 'DEL' ? kSandBeige : Colors.white,
+                              side: BorderSide(
+                                  color: key == 'CLR' || key == 'DEL'
+                                      ? kSandBeigeDim
+                                      : Colors.white24),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
+                              padding: EdgeInsets.zero,
+                            ),
+                            onPressed: () {
+                              if (key == 'CLR') {
+                                onClear();
+                              } else if (key == 'DEL') {
+                                onBackspace();
+                              } else {
+                                onDigit(key);
+                              }
+                            },
+                            child: key == 'DEL'
+                                ? const Icon(Icons.backspace_outlined, size: 16)
+                                : Text(
+                                    key == 'CLR' ? '초기화' : key,
+                                    style: TextStyle(
+                                      fontSize: key == 'CLR' ? 12 : 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

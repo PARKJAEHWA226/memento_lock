@@ -2501,8 +2501,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
         ),
         Container(
           key: const Key('home4x1WidgetPreview'),
-          height: 88,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(18),
@@ -2512,7 +2511,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
             children: [
               // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
               SizedBox(
-                width: 90,
+                width: 78,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2522,11 +2521,11 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                       children: [
                         Text(percent.toStringAsFixed(1),
                             style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 19,
                                 fontWeight: FontWeight.w300,
                                 color: style.textColor,
                                 height: 1)),
-                        Text('%', style: TextStyle(fontSize: 10.5, color: style.accentColor)),
+                        Text('%', style: TextStyle(fontSize: 10, color: style.accentColor)),
                       ],
                     ),
                     const SizedBox(height: 5),
@@ -2540,28 +2539,31 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('LIFE $livedLabel',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 9.5, letterSpacing: 0.2, color: style.accentColor)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('LIFE $livedLabel',
+                          maxLines: 1,
+                          style: TextStyle(
+                              fontSize: 9.5, letterSpacing: 0.2, color: style.accentColor)),
+                    ),
                   ],
                 ),
               ),
               Container(
                 width: 1,
-                height: 46,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
+                height: 44,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
                 color: style.subTextColor.withValues(alpha: 0.22),
               ),
               // 가운데: 명언 없이 3가지 미니멀 타임/목표 지표 중 선택한 모드 표시
               Expanded(
                 child: _buildCenterContent(mode),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               // 오른쪽: 대표 D-Day 강조 (제목 + D-Day)
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 76),
+                constraints: const BoxConstraints(maxWidth: 64),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2582,7 +2584,7 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                       child: Text(
                         dday,
                         style: TextStyle(
-                            fontSize: 19,
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color: style.accentColor,
                             height: 1.05),
@@ -2609,10 +2611,12 @@ class _Home4x1WidgetPreview extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'REMAINING TIME (80세 기준)',
+              'REMAINING (80세)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9.5,
-                letterSpacing: 0.8,
+                letterSpacing: 0.4,
                 color: style.subTextColor,
                 fontWeight: FontWeight.w600,
               ),
@@ -2624,34 +2628,46 @@ class _Home4x1WidgetPreview extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('남은 날', style: TextStyle(fontSize: 10, color: style.subTextColor)),
-                      Text(
-                        '$remDays일',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: style.textColor,
+                      Text('남은 날',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '$remDays일',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: style.textColor,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('남은 주말', style: TextStyle(fontSize: 10, color: style.subTextColor)),
-                      Text(
-                        '$remWeekends회',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: style.accentColor,
+                      Text('남은 주말',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '$remWeekends회',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: style.accentColor,
+                          ),
                         ),
                       ),
                     ],
@@ -3059,7 +3075,7 @@ class _IosWidgetKitShowcase extends StatelessWidget {
         // iOS systemMedium 홈화면 위젯 본체 (22pt Squircle 라운딩 + 3단 미니멀 레이아웃)
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(22),
@@ -3069,7 +3085,7 @@ class _IosWidgetKitShowcase extends StatelessWidget {
             children: [
               // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
               SizedBox(
-                width: 88,
+                width: 78,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -3080,13 +3096,13 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                         Text(
                           percent.toStringAsFixed(1),
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 19,
                             fontWeight: FontWeight.w300,
                             color: style.textColor,
                             height: 1,
                           ),
                         ),
-                        Text('%', style: TextStyle(fontSize: 10.5, color: style.accentColor)),
+                        Text('%', style: TextStyle(fontSize: 10, color: style.accentColor)),
                       ],
                     ),
                     const SizedBox(height: 5),
@@ -3100,14 +3116,17 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'LIFE $livedLabel',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        letterSpacing: 0.2,
-                        color: style.accentColor,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'LIFE $livedLabel',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          letterSpacing: 0.2,
+                          color: style.accentColor,
+                        ),
                       ),
                     ),
                   ],
@@ -3115,18 +3134,18 @@ class _IosWidgetKitShowcase extends StatelessWidget {
               ),
               Container(
                 width: 1,
-                height: 46,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
+                height: 44,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
                 color: style.subTextColor.withValues(alpha: 0.22),
               ),
               // 가운데: 3가지 미니멀 타임/목표 지표 (올해·오늘 게이지 / 남은 날·주말 / D-Day 프로그레스)
               Expanded(
                 child: _buildIosMediumCenter(mode),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               // 오른쪽: 대표 D-Day 강조
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 74),
+                constraints: const BoxConstraints(maxWidth: 64),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -3147,7 +3166,7 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                       child: Text(
                         dday,
                         style: TextStyle(
-                          fontSize: 19,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: style.accentColor,
                           height: 1.05,
@@ -3174,12 +3193,12 @@ class _IosWidgetKitShowcase extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'REMAINING TIME (80세)',
+              'REMAINING (80세)',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9.5,
-                letterSpacing: 0.5,
+                letterSpacing: 0.4,
                 color: style.subTextColor,
                 fontWeight: FontWeight.w600,
               ),
@@ -3191,15 +3210,21 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('남은 날', style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
-                      Text(
-                        '$remDays일',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: style.textColor,
+                      Text('남은 날',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '$remDays일',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: style.textColor,
+                          ),
                         ),
                       ),
                     ],
@@ -3210,15 +3235,21 @@ class _IosWidgetKitShowcase extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('남은 주말', style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
-                      Text(
-                        '$remWeekends회',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: style.accentColor,
+                      Text('남은 주말',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 9.5, color: style.subTextColor)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '$remWeekends회',
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: style.accentColor,
+                          ),
                         ),
                       ),
                     ],

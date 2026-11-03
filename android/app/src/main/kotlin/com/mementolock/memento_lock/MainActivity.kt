@@ -398,16 +398,16 @@ object MementoWidgetRenderer {
         when (d.home4x1Mode) {
             1 -> {
                 tp.color = withAlpha(d.textColor, 0.6f)
-                tp.textSize = 24f
-                c.drawText("REMAINING TIME (80세 기준)", 335f, 75f, tp)
+                tp.textSize = 23f
+                c.drawText("REMAINING (80세)", 335f, 75f, tp)
                 c.drawText("남은 날", 335f, 120f, tp)
-                c.drawText("남은 주말", 535f, 120f, tp)
+                c.drawText("남은 주말", 510f, 120f, tp)
                 tp.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                tp.textSize = 36f
+                tp.textSize = 32f
                 tp.color = d.textColor
-                c.drawText(d.remDays, 335f, 168f, tp)
+                c.drawText(d.remDays, 335f, 166f, tp)
                 tp.color = d.accentColor
-                c.drawText(d.remWeekends, 535f, 168f, tp)
+                c.drawText(d.remWeekends, 510f, 166f, tp)
             }
             2 -> {
                 tp.color = d.textColor

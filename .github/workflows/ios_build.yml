@@ -78,6 +78,26 @@ jobs:
         run: |
           flutter build ios --release --no-codesign
 
+      - name: Compile & Embed iOS WidgetKit Extension (.appex)
+        run: |
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          mkdir -p build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex
+          xcrun --sdk iphoneos swiftc \
+            -target arm64-apple-ios16.0 \
+            -sdk "$SDK_PATH" \
+            -parse-as-library \
+            -O \
+            ios/MementoWidgetExtension/MementoLockWidget.swift \
+            -framework SwiftUI \
+            -framework WidgetKit \
+            -framework Foundation \
+            -Xlinker -e -Xlinker _NSExtensionMain \
+            -o build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension
+          cp ios/MementoWidgetExtension/Info.plist build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/Info.plist
+          chmod +x build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex/MementoWidgetExtension
+          codesign --force --sign - --entitlements ios/MementoWidgetExtension/MementoWidgetExtension.entitlements build/ios/iphoneos/Runner.app/PlugIns/MementoWidgetExtension.appex
+          codesign --force --sign - --entitlements ios/Runner/Runner.entitlements build/ios/iphoneos/Runner.app
+
       - name: Package Unsigned .ipa Artifact
         run: |
           mkdir -p Payload

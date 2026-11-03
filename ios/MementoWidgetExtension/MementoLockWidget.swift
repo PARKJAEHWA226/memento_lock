@@ -192,7 +192,7 @@ struct MementoWidgetEntryView: View {
                         .foregroundColor(accentColor)
                         .lineLimit(1)
                 }
-                .frame(width: 86, alignment: .leading)
+                .frame(width: 82, alignment: .leading)
 
                 Rectangle()
                     .fill(textColor.opacity(0.18))
@@ -213,6 +213,7 @@ struct MementoWidgetEntryView: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(textColor)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
                             }
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("남은 주말")
@@ -222,6 +223,7 @@ struct MementoWidgetEntryView: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(accentColor)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
                             }
                         }
                     } else if entry.home4x1Mode == 2 {
@@ -280,10 +282,22 @@ struct MementoWidgetEntryView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 }
-                .frame(width: 68, alignment: .trailing)
+                .frame(width: 64, alignment: .trailing)
             }
             .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(boxColor)
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func mementoWidgetBackground(_ color: Color) -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            self.containerBackground(color, for: .widget)
+        } else {
+            self.background(color)
         }
     }
 }
@@ -294,7 +308,9 @@ struct MementoLockWidgetBundle: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MementoProvider()) { entry in
+            let boxColor = Color(hex: entry.boxHex, alpha: entry.opacity)
             MementoWidgetEntryView(entry: entry)
+                .mementoWidgetBackground(boxColor)
         }
         .configurationDisplayName("Memento Lock")
         .description("잠금화면 위젯(인생 게이지 + D-Day 2개 + 명언) 및 홈화면 Medium 위젯(인생 게이지 + 3가지 타임/목표 지표 + D-Day)을 표시합니다.")

@@ -180,8 +180,8 @@ struct MementoWidgetEntryView: View {
                 }
                 Text(entry.quote)
                     .font(.system(size: 11, weight: .light))
-                    .foregroundColor(textColor.opacity(0.85))
-                    .lineLimit(1)
+                    .foregroundColor(textColor.opacity(0.88))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
             .background(boxColor)

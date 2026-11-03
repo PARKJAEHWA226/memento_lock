@@ -2093,15 +2093,15 @@ class _LockScreenWidgetPreview extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // 하단: 명언 1줄
+          // 하단: 명언 전문 전체 노출 (말줄임표 없음)
           Text(
             quote,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontSize: 12,
-              color: style.textColor.withValues(alpha: 0.85),
+              color: style.textColor.withValues(alpha: 0.88),
               fontWeight: FontWeight.w300,
+              height: 1.35,
             ),
           ),
         ],
@@ -2210,93 +2210,94 @@ class _Home4x1WidgetPreview extends StatelessWidget {
         ),
         Container(
           key: const Key('home4x1WidgetPreview'),
-          height: 88,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           decoration: BoxDecoration(
             color: style.boxColor,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: style.borderColor),
           ),
-          child: Row(
-            children: [
-              // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
-              SizedBox(
-                width: 106,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(percent.toStringAsFixed(1),
-                            style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w300,
-                                color: style.textColor,
-                                height: 1)),
-                        Text('%', style: TextStyle(fontSize: 11, color: style.accentColor)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: percent / 100,
-                        minHeight: 4,
-                        backgroundColor: style.subTextColor.withValues(alpha: 0.18),
-                        color: style.accentColor,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 왼쪽: 인생 게이지 수치 + 바 + LIFE D+
+                SizedBox(
+                  width: 106,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(percent.toStringAsFixed(1),
+                              style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w300,
+                                  color: style.textColor,
+                                  height: 1)),
+                          Text('%', style: TextStyle(fontSize: 11, color: style.accentColor)),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text('LIFE $livedLabel',
-                        style: TextStyle(
-                            fontSize: 10, letterSpacing: 1, color: style.accentColor)),
-                  ],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 44,
-                margin: const EdgeInsets.symmetric(horizontal: 14),
-                color: style.subTextColor.withValues(alpha: 0.2),
-              ),
-              // 가운데: 오늘의 명언 + 목표 제목
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      goalTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11,
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: percent / 100,
+                          minHeight: 4,
+                          backgroundColor: style.subTextColor.withValues(alpha: 0.18),
                           color: style.accentColor,
-                          fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      quote,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: style.textColor.withValues(alpha: 0.85),
-                          height: 1.25),
-                    ),
-                  ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('LIFE $livedLabel',
+                          style: TextStyle(
+                              fontSize: 10, letterSpacing: 1, color: style.accentColor)),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              // 오른쪽: 대표 D-Day 강조
-              Text(
-                dday,
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w400, color: style.accentColor),
-              ),
-            ],
+                Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  color: style.subTextColor.withValues(alpha: 0.2),
+                ),
+                // 가운데: 오늘의 명언(말줄임표 없이 전문 전체 노출) + 목표 제목
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        goalTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: style.accentColor,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        quote,
+                        softWrap: true,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: style.textColor.withValues(alpha: 0.88),
+                            height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // 오른쪽: 대표 D-Day 강조
+                Text(
+                  dday,
+                  style: TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w400, color: style.accentColor),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -2522,11 +2523,11 @@ class _IosWidgetKitShowcase extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 quote,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
                 style: TextStyle(
                   fontSize: 11,
-                  color: style.textColor.withValues(alpha: 0.85),
+                  color: style.textColor.withValues(alpha: 0.88),
+                  height: 1.35,
                 ),
               ),
             ],

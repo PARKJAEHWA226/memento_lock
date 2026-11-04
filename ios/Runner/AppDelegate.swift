@@ -4,11 +4,13 @@ import WidgetKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private let appGroupId = "group.com.mementolock.shared"
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    syncFlutterPrefsToWidget()
+    syncFromFlutterPrefs()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -22,10 +24,13 @@ import WidgetKit
       channel.setMethodCallHandler { [weak self] call, result in
         switch call.method {
         case "updateWidgets":
-          self?.syncFlutterPrefsToWidget()
+          if let args = call.arguments as? [String: Any] {
+            self?.savePayloadToWidgetStorage(args)
+          } else {
+            self?.syncFromFlutterPrefs()
+          }
           result(true)
         case "requestPinWidget":
-          self?.syncFlutterPrefsToWidget()
           result(false)
         default:
           result(FlutterMethodNotImplemented)
@@ -34,10 +39,59 @@ import WidgetKit
     }
   }
 
-  private func syncFlutterPrefsToWidget() {
+  private func savePayloadToWidgetStorage(_ dict: [String: Any]) {
     let std = UserDefaults.standard
-    let shared = UserDefaults(suiteName: "group.com.mementolock.shared")
+    let shared = UserDefaults(suiteName: appGroupId)
 
+    for target in [std, shared].compactMap({ $0 }) {
+      if let pct = dict["lifePercent"] as? Double { target.set(pct, forKey: "lifePercent") }
+      if let age = dict["age"] as? Int { target.set(age, forKey: "age") }
+      if let lived = dict["livedLabel"] as? String { target.set(lived, forKey: "livedLabel") }
+      if let remDays = dict["remainingDaysLabel"] as? String { target.set(remDays, forKey: "remainingDaysLabel") }
+      if let remWeekends = dict["remainingWeekendsLabel"] as? String { target.set(remWeekends, forKey: "remainingWeekendsLabel") }
+      if let yearPct = dict["yearPercent"] as? Double { target.set(yearPct, forKey: "yearPercent") }
+      if let todayPct = dict["todayPercent"] as? Double { target.set(todayPct, forKey: "todayPercent") }
+      if let homeMode = dict["home4x1Mode"] as? Int { target.set(homeMode, forKey: "home4x1Mode") }
+      if let quote = dict["quote"] as? String { target.set(quote, forKey: "quote") }
+      if let opacity = dict["opacity"] as? Double { target.set(opacity, forKey: "opacity") }
+      if let boxColor = dict["boxColor"] as? Int { target.set(boxColor, forKey: "boxColor") }
+      if let textColor = dict["textColor"] as? Int { target.set(textColor, forKey: "textColor") }
+      if let accentColor = dict["accentColor"] as? Int { target.set(accentColor, forKey: "accentColor") }
+
+      if let goals = dict["goals"] as? [[String: Any]] {
+        if goals.count > 0 {
+          target.set(goals[0]["title"] as? String ?? "나의 목표", forKey: "goal1Title")
+          target.set(goals[0]["dday"] as? String ?? "D-DAY", forKey: "goal1Dday")
+          target.set(goals[0]["progress"] as? Double ?? 50.0, forKey: "goal1Progress")
+        }
+        if goals.count > 1 {
+          target.set(goals[1]["title"] as? String ?? "버킷리스트", forKey: "goal2Title")
+          target.set(goals[1]["dday"] as? String ?? "D-DAY", forKey: "goal2Dday")
+          target.set(goals[1]["progress"] as? Double ?? 50.0, forKey: "goal2Progress")
+        }
+      }
+      target.synchronize()
+    }
+
+    // 파일 기반 공유 (AppGroup 또는 Shared Container에 memento_data.json 기록)
+    if let jsonData = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted]) {
+      if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
+        let fileURL = containerURL.appendingPathComponent("memento_data.json")
+        try? jsonData.write(to: fileURL)
+      }
+      if let docDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        let localURL = docDir.appendingPathComponent("memento_data.json")
+        try? jsonData.write(to: localURL)
+      }
+    }
+
+    if #available(iOS 14.0, *) {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
+  }
+
+  private func syncFromFlutterPrefs() {
+    let std = UserDefaults.standard
     let birthStr = std.string(forKey: "flutter.birth") ?? "1995-05-15"
     let sdf = DateFormatter()
     sdf.dateFormat = "yyyy-MM-dd"
@@ -84,15 +138,8 @@ import WidgetKit
       home4x1Mode = (json["home4x1Mode"] as? Int) ?? 0
     }
 
-    var g1Title = "D-Day 1 미설정"
-    var g1Dday = "—"
-    var g1Prog = 0.0
-    var g2Title = "D-Day 2 추가 가능"
-    var g2Dday = "—"
-    var g2Prog = 0.0
-
+    var goalsPayload: [[String: Any]] = []
     if let rawGoals = std.stringArray(forKey: "flutter.goals") {
-      var parsed: [(String, String, Double)] = []
       for item in rawGoals {
         if let d = item.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
@@ -102,47 +149,29 @@ import WidgetKit
           let diff = cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: dt)).day ?? 0
           let dday = diff > 0 ? "D-\(diff)" : (diff == 0 ? "D-DAY" : "D+\(-diff)")
           let prog = diff <= 0 ? 100.0 : max(8.0, min(100.0, Double(365 - min(365, max(0, diff))) / 365.0 * 100.0))
-          parsed.append((title, dday, prog))
+          goalsPayload.append(["title": title, "dday": dday, "progress": prog])
         }
-      }
-      if parsed.count > 0 {
-        g1Title = parsed[0].0
-        g1Dday = parsed[0].1
-        g1Prog = parsed[0].2
-      }
-      if parsed.count > 1 {
-        g2Title = parsed[1].0
-        g2Dday = parsed[1].1
-        g2Prog = parsed[1].2
       }
     }
 
     let quote = std.string(forKey: "flutter.lastQuote") ?? "기억하라, 너는 언젠가 죽는다. — Memento Mori"
 
-    for target in [std, shared].compactMap({ $0 }) {
-      target.set(pct, forKey: "lifePercent")
-      target.set(age, forKey: "age")
-      target.set(livedLabel, forKey: "livedLabel")
-      target.set(remDaysLabel, forKey: "remainingDaysLabel")
-      target.set(remWeekendsLabel, forKey: "remainingWeekendsLabel")
-      target.set(yearPct, forKey: "yearPercent")
-      target.set(todayPct, forKey: "todayPercent")
-      target.set(home4x1Mode, forKey: "home4x1Mode")
-      target.set(quote, forKey: "quote")
-      target.set(opacity, forKey: "opacity")
-      target.set(boxColor, forKey: "boxColor")
-      target.set(textColor, forKey: "textColor")
-      target.set(accentColor, forKey: "accentColor")
-      target.set(g1Title, forKey: "goal1Title")
-      target.set(g1Dday, forKey: "goal1Dday")
-      target.set(g1Prog, forKey: "goal1Progress")
-      target.set(g2Title, forKey: "goal2Title")
-      target.set(g2Dday, forKey: "goal2Dday")
-      target.set(g2Prog, forKey: "goal2Progress")
-    }
-
-    if #available(iOS 14.0, *) {
-      WidgetCenter.shared.reloadAllTimelines()
-    }
+    let dict: [String: Any] = [
+      "lifePercent": pct,
+      "age": age,
+      "livedLabel": livedLabel,
+      "remainingDaysLabel": remDaysLabel,
+      "remainingWeekendsLabel": remWeekendsLabel,
+      "yearPercent": yearPct,
+      "todayPercent": todayPct,
+      "home4x1Mode": home4x1Mode,
+      "quote": quote,
+      "opacity": opacity,
+      "boxColor": boxColor,
+      "textColor": textColor,
+      "accentColor": accentColor,
+      "goals": goalsPayload
+    ]
+    savePayloadToWidgetStorage(dict)
   }
 }

@@ -227,13 +227,53 @@ class ProfileStore {
   static const MethodChannel _widgetChannel =
       MethodChannel('com.mementolock.memento_lock/widgets');
 
-  static Future<void> syncNativeWidgets([String? quote]) async {
+  static Future<void> syncNativeWidgets({Profile? profile, String? quote}) async {
     try {
-      if (quote != null) {
-        final p = await SharedPreferences.getInstance();
-        await p.setString(_lastQuoteKey, quote);
+      final v = profile ?? await load();
+      if (v == null) return;
+      final q = quote ?? (await SharedPreferences.getInstance()).getString(_lastQuoteKey) ?? pickQuote(v.quoteMode);
+      final now = DateTime.now();
+      final pct = lifePercent(v.birth, now);
+      final age = now.difference(v.birth).inDays ~/ 365.25;
+      final livedStr = livedDayLabel(v.birth, now);
+      final remDaysStr = '${NumberFormat('#,###').format(remainingLifeDays(v.birth, now))}일';
+      final remWeekendsStr = '${NumberFormat('#,###').format(remainingLifeWeekends(v.birth, now))}회';
+      final yearPct = yearElapsedPercent(now);
+      final todayPct = todayElapsedPercent(now);
+
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_lastQuoteKey, q);
+
+      final goalsPayload = <Map<String, dynamic>>[];
+      for (final g in v.goals) {
+        final diff = daysUntil(g.date, now);
+        final ddayStr = ddayLabel(diff);
+        final prog = diff <= 0 ? 100.0 : ((365 - diff.clamp(0, 365)) / 365 * 100).clamp(8.0, 100.0);
+        goalsPayload.add({
+          'title': g.title,
+          'dday': ddayStr,
+          'progress': prog,
+        });
       }
-      await _widgetChannel.invokeMethod('updateWidgets');
+
+      final payload = <String, dynamic>{
+        'lifePercent': pct,
+        'age': age,
+        'livedLabel': livedStr,
+        'remainingDaysLabel': remDaysStr,
+        'remainingWeekendsLabel': remWeekendsStr,
+        'yearPercent': yearPct,
+        'todayPercent': todayPct,
+        'home4x1Mode': v.widgetStyle.home4x1Mode,
+        'quote': q,
+        'opacity': v.widgetStyle.opacity,
+        'boxColor': v.widgetStyle.boxColorValue,
+        'textColor': v.widgetStyle.textColorValue,
+        'accentColor': v.widgetStyle.accentColorValue,
+        'goals': goalsPayload,
+      };
+
+      await _widgetChannel.invokeMethod('updateWidgets', payload);
     } catch (_) {}
   }
 
@@ -290,8 +330,9 @@ class ProfileStore {
     }
   }
 
-  static Future<void> save(Profile v) async {
+  static Future<void> save(Profile v, [String? currentQuote]) async {
     try {
+      final quote = currentQuote ?? pickQuote(v.quoteMode);
       final p = await SharedPreferences.getInstance();
       await p.setString(_birthKey, v.birth.toIso8601String());
       await p.setStringList(
@@ -304,8 +345,8 @@ class ProfileStore {
         _pinnedGoalsKey,
         v.pinnedGoalIndices.map((i) => i.toString()).toList(),
       );
-      await p.setString(_lastQuoteKey, pickQuote(v.quoteMode));
-      await syncNativeWidgets();
+      await p.setString(_lastQuoteKey, quote);
+      await syncNativeWidgets(profile: v, quote: quote);
     } catch (_) {}
   }
 }
@@ -1134,8 +1175,8 @@ class _HomePageState extends State<HomePage> {
   Future<void> _updateProfile(Profile next) async {
     // 1. UI에 먼저 즉시 반영 (슬라이더 끊김 및 비동기 역전 방지)
     setState(() => _profile = next);
-    // 2. 로컬 저장소에 영구 저장
-    await ProfileStore.save(next);
+    // 2. 로컬 저장소 및 실제 위젯에 현재 화면 명언과 함께 영구 저장
+    await ProfileStore.save(next, _currentQuote);
   }
 
   void _refreshQuote([QuoteMode? mode]) {
@@ -1147,7 +1188,9 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _currentQuote = nextQuote;
     });
-    ProfileStore.syncNativeWidgets(nextQuote);
+    if (_profile != null) {
+      ProfileStore.syncNativeWidgets(profile: _profile, quote: nextQuote);
+    }
   }
 
   Future<void> _toggleQuoteMode() async {
@@ -1155,13 +1198,9 @@ class _HomePageState extends State<HomePage> {
     if (p == null) return;
     final nextMode = p.quoteMode == QuoteMode.daily ? QuoteMode.everyTime : QuoteMode.daily;
     final updated = p.copyWith(quoteMode: nextMode);
-    await ProfileStore.save(updated);
+    await ProfileStore.save(updated, _currentQuote);
     setState(() {
       _profile = updated;
-      _currentQuote = pickQuote(
-        nextMode,
-        randomSeed: nextMode == QuoteMode.everyTime ? DateTime.now().microsecondsSinceEpoch : null,
-      );
     });
   }
 
@@ -1171,9 +1210,8 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(builder: (_) => SettingsPage(initial: _profile)),
     );
     if (result != null) {
-      final q = pickQuote(result.quoteMode);
-      await ProfileStore.save(result);
-      await ProfileStore.syncNativeWidgets(q);
+      final q = _currentQuote.isNotEmpty ? _currentQuote : pickQuote(result.quoteMode);
+      await ProfileStore.save(result, q);
       if (!mounted) return;
       setState(() {
         _profile = result;
@@ -1517,7 +1555,7 @@ class _HomePageState extends State<HomePage> {
                 style: ws,
                 onChanged: (nextStyle) => _updateProfile(p.copyWith(widgetStyle: nextStyle)),
                 onSaveAndClose: () async {
-                  await ProfileStore.save(p);
+                  await ProfileStore.save(p, _currentQuote);
                   if (!context.mounted) return;
                   setState(() => _showCustomizer = false);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1674,7 +1712,7 @@ class _HomePageState extends State<HomePage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     onPressed: () async {
-                      await ProfileStore.syncNativeWidgets(_currentQuote);
+                      await ProfileStore.syncNativeWidgets(profile: p, quote: _currentQuote);
                       final pinned = await ProfileStore.requestPinNativeWidget('lock');
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1708,7 +1746,7 @@ class _HomePageState extends State<HomePage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     onPressed: () async {
-                      await ProfileStore.syncNativeWidgets(_currentQuote);
+                      await ProfileStore.syncNativeWidgets(profile: p, quote: _currentQuote);
                       final pinned = await ProfileStore.requestPinNativeWidget('home4x1');
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

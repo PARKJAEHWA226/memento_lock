@@ -28,6 +28,14 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "updateWidgets" -> {
+                    val args = call.arguments as? Map<*, *>
+                    if (args != null) {
+                        val quote = args["quote"] as? String
+                        if (!quote.isNullOrBlank()) {
+                            val prefs = applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            prefs.edit().putString("flutter.lastQuote", quote).apply()
+                        }
+                    }
                     MementoWidgetRenderer.updateAllWidgets(applicationContext)
                     result.success(true)
                 }

@@ -52,7 +52,7 @@ jobs:
 
   build-ios-ipa:
     name: Build Native iOS App (.ipa) on macOS
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
